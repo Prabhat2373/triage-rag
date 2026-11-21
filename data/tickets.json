@@ -1,0 +1,177 @@
+[
+  {
+    "ticketCode": "TKT-1001",
+    "category": "Webhook & Security",
+    "title": "Webhook Signature Verification Failure due to Raw Body Parsing Middleware",
+    "symptom": "External incoming webhooks (e.g. GitHub/Stripe) are returning HTTP 400 'Invalid signature' or HMAC mismatch errors. Server logs show the signature calculated locally does not match the signature header.",
+    "resolution": "The JSON body parsing middleware (express.json() / bodyParser) was altering formatting and stripping whitespace before HMAC computation. Switched to capturing the raw unparsed Buffer using verify callback in body-parser or using req.rawBody before JSON parsing, then passing the raw Buffer to crypto.createHmac."
+  },
+  {
+    "ticketCode": "TKT-1002",
+    "category": "Authentication & JWT",
+    "title": "JWT Refresh Token Race Condition during Parallel API Requests",
+    "symptom": "When multiple frontend API calls fire simultaneously after an access token expires, the first request refreshes the token and rotates the refresh token. Subsequent concurrent requests present the invalidated refresh token, triggering token reuse detection and force-logging the user out.",
+    "resolution": "Implemented a 30-second grace period for invalidated refresh tokens in Redis. Additionally implemented a frontend request queue/mutex using an Axios interceptor so that only one refresh request is dispatched while concurrent outgoing requests wait on the same refresh promise."
+  },
+  {
+    "ticketCode": "TKT-1003",
+    "category": "Database & Infrastructure",
+    "title": "Postgres Connection Pool Exhaustion under Spiked Traffic",
+    "symptom": "Application instances throwing 'FATAL: remaining connection slots are reserved for non-replication superuser connections' or query timeouts with 500 Internal Server Errors during flash traffic spikes.",
+    "resolution": "Configured PgBouncer in transaction pooling mode between the app servers and PostgreSQL. Set maximum client connections to 1000 while pinning PostgreSQL max_connections to 150. Updated app connection string to connect through PgBouncer port 6432."
+  },
+  {
+    "ticketCode": "TKT-1004",
+    "category": "POS & Hardware",
+    "title": "Thermal Receipt Printer Timeout via ESC/POS Network Socket",
+    "symptom": "POS terminal fails to print customer receipts, hanging for 30 seconds before throwing SocketTimeoutException or 'Network printer unreachable at 192.168.1.150:9100'.",
+    "resolution": "The POS printer had a DHCP lease expiration which reassigned its IP. Bound the thermal printer MAC address to a static IP reservation in the router. Updated the POS bridge service socket timeout from 30s to 5s with an automatic retry and offline receipt spooling."
+  },
+  {
+    "ticketCode": "TKT-1005",
+    "category": "API Gateway & Rate Limiting",
+    "title": "API Gateway 429 Too Many Requests Spike on Leaky Bucket Throttling",
+    "symptom": "Mobile and web clients receive HTTP 429 Too Many Requests errors during peak hours even though cumulative user request counts are within hourly tiers. Retry-After header indicates immediate burst limit violation.",
+    "resolution": "Adjusted the Redis token bucket algorithm in the API gateway. Increased burst allowance capacity from 10 to 50 requests while maintaining the sustained replenishment rate of 5 requests/sec. Configured client SDKs with exponential backoff and jitter honoring the Retry-After header."
+  },
+  {
+    "ticketCode": "TKT-1006",
+    "category": "CORS & Frontend",
+    "title": "CORS Preflight OPTIONS Failure with Authorization and Custom Headers",
+    "symptom": "Web browser blocks cross-origin API requests from app.example.com to api.example.com. DevTools console reports: 'Response to preflight request doesn't pass access control check: Request header field authorization is not allowed by Access-Control-Allow-Headers in preflight response.'",
+    "resolution": "Updated CORS configuration on the API gateway to explicitly include 'Authorization', 'Content-Type', 'X-Requested-With', and 'X-Client-Version' in the Access-Control-Allow-Headers response header for OPTIONS requests, and added maxAge: 86400 to cache preflight decisions."
+  },
+  {
+    "ticketCode": "TKT-1007",
+    "category": "Payments & Billing",
+    "title": "Stripe Payment Webhook Duplicate Charges Missing Idempotency Key",
+    "symptom": "Customers report duplicate charges on card checkout during slow network connections. Stripe dashboard shows two charge attempts occurring within 800ms with identical carts.",
+    "resolution": "Generated a deterministic client-side idempotency UUID (stored in session storage per checkout session) and forwarded it in the Idempotency-Key header on all Stripe Charge/PaymentIntent API calls. Added database UNIQUE constraint on order_number."
+  },
+  {
+    "ticketCode": "TKT-1008",
+    "category": "Webhook & Security",
+    "title": "Webhook HMAC-SHA256 Secret Mismatch after Environment Rotation",
+    "symptom": "Production webhook receiver rejects all incoming partner events with HTTP 401 Unauthorized following scheduled secret rotation in HashiCorp Vault.",
+    "resolution": "The webhook handler expected the new secret, but webhook sender had a queued backlog signed with the old secret. Implemented dual-secret verification support: verified against the primary secret first, and if invalid, tested against previous secret for a 24-hour transition window."
+  },
+  {
+    "ticketCode": "TKT-1009",
+    "category": "Authentication & JWT",
+    "title": "JWT Expired Token Loop on Browser Client Tab Desync",
+    "symptom": "Users opening multiple browser tabs experience erratic redirects to /login or flash of unauthenticated screens while active in another tab.",
+    "resolution": "Replaced isolated tab memory token storage with BroadcastChannel and Web Storage synchronization. When one tab refreshes the JWT, it broadcasts the new access token to all other tabs on the same origin via BroadcastChannel('auth_sync')."
+  },
+  {
+    "ticketCode": "TKT-1010",
+    "category": "Database & Infrastructure",
+    "title": "Database Max Connections Exceeded by Unpooled Serverless Lambdas",
+    "symptom": "AWS Lambda auto-scales to 300 concurrent workers during batch job processing, immediately consuming all 300 Postgres connections and killing RDS DB instance with 'out of memory' or connection drops.",
+    "resolution": "Provisioned AWS RDS Proxy (or Neon/Supabase pooled connection string) in front of PostgreSQL. Configured Lambda functions to connect via the pooler endpoint and reuse client instances outside the Lambda handler function scope across warm invokes."
+  },
+  {
+    "ticketCode": "TKT-1011",
+    "category": "POS & Hardware",
+    "title": "POS Thermal Printer Buffer Overflow on High-Density Bitmap Printing",
+    "symptom": "Thermal printer prints half of the store logo image, stops, and spits out raw ASCII garbage characters like '?@!??&' on remaining paper rolls.",
+    "resolution": "The store logo bitmap in ESC/POS format exceeded the printer's 64KB internal raster image buffer. Downsampled logo resolution to 384px mono 1-bit bitmap, chunked the raster bit-image command (GS v 0) into 4KB data slices with 50ms pauses between chunks."
+  },
+  {
+    "ticketCode": "TKT-1012",
+    "category": "API Gateway & Rate Limiting",
+    "title": "Tenant-level 429 Rate Limiting Due to Misconfigured Redis Token Bucket",
+    "symptom": "Multi-tenant customers reporting sudden 429 errors when running nightly automated reporting scripts that hit bulk export endpoints.",
+    "resolution": "The rate limiter was keying purely by tenantId rather than tenantId:route. Separated rate limit policies so that read-heavy bulk export endpoints use a dedicated 100 req/min quota while regular transactional API endpoints run on an isolated 1,000 req/min bucket."
+  },
+  {
+    "ticketCode": "TKT-1013",
+    "category": "CORS & Frontend",
+    "title": "CORS Origin Not Allowed on Subdomain API Calls Behind Cloudflare",
+    "symptom": "Requests from tenant-subdomains (*.app.domain.com) fail with CORS error 'The 'Access-Control-Allow-Origin' header contains multiple values or is missing'.",
+    "resolution": "Cloudflare transform rules and backend Express server were both appending Access-Control-Allow-Origin. Removed redundant Cloudflare response header rule and updated Express dynamic regex origin check to return single matching origin from request Origin header."
+  },
+  {
+    "ticketCode": "TKT-1014",
+    "category": "Payments & Billing",
+    "title": "Payment Intent Failed with Idempotency Key Reused with Different Payload",
+    "symptom": "Stripe API returns 400 Bad Request: 'Keys for idempotent requests can only be used with the same parameters they were first used with.' Checkout crashes for customer.",
+    "resolution": "Frontend was reusing the same checkout UUID when a customer altered tip amounts or applied coupons. Changed idempotency key generation to SHA-256 hash of orderId + cartAmount + currency to ensure distinct payment parameters generate distinct keys."
+  },
+  {
+    "ticketCode": "TKT-1015",
+    "category": "Webhook & Security",
+    "title": "Webhook Event Delivery Dropped due to SSL Handshake Timeout",
+    "symptom": "Third-party CRM webhook delivery status shows 100% failure with 'SSL handshake failed' or 'ETIMEDOUT' connecting to customer webhook listener.",
+    "resolution": "Customer endpoint was hosted behind an intermediate proxy missing intermediate CA certificates (incomplete SSL chain). Reconfigured NGINX on receiver with fullchain.pem instead of cert.pem and enabled TLSv1.2/TLSv1.3 modern cipher suites."
+  },
+  {
+    "ticketCode": "TKT-1016",
+    "category": "Authentication & JWT",
+    "title": "Silent JWT Refresh Failure When Rotation Grace Period is 0 Seconds",
+    "symptom": "Single page app users with multiple network requests in-flight get logged out instantly upon token expiry with 'Refresh token has already been consumed'.",
+    "resolution": "Configured the auth service refresh token family rotation with a 45-second sliding window grace period, allowing in-flight requests with previous refresh token to receive the same new access token without invalidating the entire family."
+  },
+  {
+    "ticketCode": "TKT-1017",
+    "category": "Database & Infrastructure",
+    "title": "Postgres Idle In Transaction Connection Leaks in Prisma/Drizzle Transactions",
+    "symptom": "Database metrics show connections climbing continuously over 48 hours without dropping. pg_stat_activity shows dozens of queries stuck in 'idle in transaction' state.",
+    "resolution": "Found unhandled promise rejections inside interactive transactions where an HTTP call was made inside db.transaction(). Extracted external HTTP calls outside of DB transactions and configured Postgres parameter idle_in_transaction_session_timeout = '15s'."
+  },
+  {
+    "ticketCode": "TKT-1018",
+    "category": "POS & Hardware",
+    "title": "POS Receipt Printer Port 9100 Keep-Alive Dropping on Local DHCP Rebind",
+    "symptom": "Kitchen display and receipt printers go offline every 24 hours at midnight. Requires physically power-cycling printers to restore connectivity.",
+    "resolution": "TCP keepalive was disabled on the raw socket connection from POS service to port 9100. Enabled socket.setKeepAlive(true, 10000) and implemented a 3-second heartbeat probe that reconnects automatically if the socket becomes unresponsive."
+  },
+  {
+    "ticketCode": "TKT-1019",
+    "category": "API Gateway & Rate Limiting",
+    "title": "Third-party Webhook Spikes Causing Ingress 429 Rate Limits",
+    "symptom": "Inbound webhook processing endpoint drops 35% of events from Shopify during Black Friday flash sale due to hitting upstream ingress rate limits.",
+    "resolution": "Decoupled webhook ingestion from database processing. Ingress endpoint now immediately writes raw webhook payload into an AWS SQS / RabbitMQ queue with HTTP 202 Accepted, and asynchronous worker consumers process events with concurrency limits."
+  },
+  {
+    "ticketCode": "TKT-1020",
+    "category": "CORS & Frontend",
+    "title": "CORS Wildcard Access-Control-Allow-Origin Rejected with Credentials: Include",
+    "symptom": "Browser blocks API fetch with error: 'The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include''.",
+    "resolution": "When Access-Control-Allow-Credentials is true, the wildcard '*' is forbidden by the W3C spec. Modified server response to reflect the specific incoming req.headers.origin (after validating against allowed domains whitelist)."
+  },
+  {
+    "ticketCode": "TKT-1021",
+    "category": "Payments & Billing",
+    "title": "Stripe Webhook Retry Storm after 500 Response Triggers Cascading Failures",
+    "symptom": "A transient database lock caused webhook handler to return 500. Stripe's retry schedule hammered the database with thousands of duplicate events, crashing the web server.",
+    "resolution": "Configured webhook controller to return HTTP 200 OK immediately after persisting the event payload to an idempotency-deduplicated dead-letter queue, processing business logic in a background worker."
+  },
+  {
+    "ticketCode": "TKT-1022",
+    "category": "POS & Hardware",
+    "title": "POS Cut Command Failed: ESC/POS Paper Cutter Jammed or Not Supported",
+    "symptom": "Receipt prints completely but does not cut paper; next receipt prints on the same strip. POS terminal reports 'Paper cut command GS V 66 0 ignored'.",
+    "resolution": "The specific printer model (Epson TM-T20 vs TM-T88) used standard partial cut command GS V 1 (0x1D 0x56 0x01) instead of GS V 66 0. Added printer driver capability profile detection to issue model-compatible cut bytes."
+  },
+  {
+    "ticketCode": "TKT-1023",
+    "category": "Authentication & JWT",
+    "title": "JWT Asymmetric Verification Key Caching Causing 401s after JWKS Key Rotation",
+    "symptom": "Auth0/Cognito rotated public signing keys (JWKS). Backend API started rejecting 100% of valid user tokens with 'JsonWebTokenError: invalid signature'.",
+    "resolution": "The JWKS client had infinite key caching enabled. Configured jwks-rsa with cache: true, rateLimit: true, jwksRequestsPerMinute: 10, and enabled auto-refetching of the JWKS endpoint when an unknown kid (Key ID) header is encountered."
+  },
+  {
+    "ticketCode": "TKT-1024",
+    "category": "Database & Infrastructure",
+    "title": "Connection Pooler PgBouncer Reaching max_client_conn Under High Concurrency",
+    "symptom": "API servers report 'server_login_retry: connection limit reached' when connecting to PgBouncer. App latency spikes from 20ms to 8000ms.",
+    "resolution": "Raised max_client_conn from 100 to 2000 in pgbouncer.ini and increased system open files ulimit from 1024 to 65536. Set pool_mode = transaction and server_idle_timeout = 60."
+  },
+  {
+    "ticketCode": "TKT-1025",
+    "category": "Payments & Billing",
+    "title": "Double Billing from Mobile App Retry Without Client-Generated Idempotency Header",
+    "symptom": "Mobile users experiencing elevator/tunnel connectivity drops submit checkout, see a network error, tap 'Pay Now' again, and get billed twice for the same order.",
+    "resolution": "Enforced client-generated X-Idempotency-Key header on all /api/checkout endpoints at the API gateway layer. If a second request arrives with identical idempotency key within 15 minutes, the gateway returns the cached response of the initial request."
+  }
+]
