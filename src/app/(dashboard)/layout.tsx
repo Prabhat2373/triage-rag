@@ -1,7 +1,8 @@
-import { getAuthContext, getAllUsersAndOrgs } from '@/lib/auth';
+import { getAuthContext } from '@/features/accounts/session';
+import { sanitizeText } from '@/features/privacy/redact';
 import { db } from '@/db';
 import { tickets, chatSessions } from '@/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { DashboardProvider } from '@/components/layout/DashboardContext';
 import { DashboardShell } from '@/components/layout/DashboardShell';
@@ -18,7 +19,6 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  const { allUsers, allOrgs } = await getAllUsersAndOrgs();
 
   // Multi-tenant and user-isolated queries
   const userChatSessions = await db
@@ -27,19 +27,20 @@ export default async function DashboardLayout({
     .where(and(eq(chatSessions.orgId, auth.org.id), eq(chatSessions.userId, auth.user.id)))
     .orderBy(desc(chatSessions.updatedAt));
 
-  const ticketsCount = await db
-    .select({ id: tickets.id })
+  const [{ total: incidentCount }] = await db
+    .select({ total: count() })
     .from(tickets)
     .where(eq(tickets.orgId, auth.org.id));
 
   return (
     <DashboardProvider
       auth={auth}
-      allUsers={allUsers}
-      allOrgs={allOrgs}
-      initialChatSessions={userChatSessions}
+      initialChatSessions={userChatSessions.map((session) => ({
+        ...session,
+        title: sanitizeText(session.title).sanitized,
+      }))}
     >
-      <DashboardShell kbCount={ticketsCount.length}>
+      <DashboardShell kbCount={incidentCount}>
         {children}
       </DashboardShell>
     </DashboardProvider>

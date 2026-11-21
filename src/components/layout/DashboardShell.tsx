@@ -4,11 +4,19 @@ import React, { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
-import { ProfileModal } from '@/components/common/ProfileModal';
-import { IngestIncidentModal } from '@/components/common/IngestIncidentModal';
+import { IngestIncidentModal } from '@/features/incidents/ui/IngestIncidentModal';
 import { useTheme } from '@/hooks/useTheme';
 import { useDashboard } from './DashboardContext';
-import { createChatSessionAction } from '@/app/actions';
+import { isChatModel } from '@/features/chat/types';
+import { createChatSessionAction } from '@/features/chat/actions';
+
+const pageTitles: Record<string, string> = {
+  '/': 'Incident copilot',
+  '/knowledge-base': 'Knowledge base',
+  '/integrations': 'Integrations',
+  '/observability': 'Observability',
+  '/audit': 'Audit log',
+};
 
 interface Props {
   kbCount: number;
@@ -19,14 +27,12 @@ export function DashboardShell({ kbCount, children }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [ingestModalOpen, setIngestModalOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
 
   const {
     auth,
-    allUsers,
-    allOrgs,
     chatSessions,
     setChatSessions,
     activeSessionId,
@@ -41,14 +47,16 @@ export function DashboardShell({ kbCount, children }: Props) {
   } = useDashboard();
 
   const handleNewChat = async () => {
+    setMobileSidebarOpen(false);
     if (pathname !== '/') {
       router.push('/');
     }
     try {
       const res = await createChatSessionAction('New Triage Session', selectedModel);
       if (res.success && res.session) {
-        setChatSessions((prev) => [res.session!, ...prev]);
-        setActiveSessionId(res.session.id);
+        const session = res.session;
+        setChatSessions((prev) => [session, ...prev]);
+        setActiveSessionId(session.id);
         setActiveSessionTitle('New Triage Session');
       }
     } catch {
@@ -57,11 +65,12 @@ export function DashboardShell({ kbCount, children }: Props) {
   };
 
   const handleSelectSession = (id: number) => {
+    setMobileSidebarOpen(false);
     setActiveSessionId(id);
     const found = chatSessions.find((s) => s.id === id);
     if (found) {
       setActiveSessionTitle(found.title);
-      if (found.model) setSelectedModel(found.model);
+      if (isChatModel(found.model)) setSelectedModel(found.model);
     }
     if (pathname !== '/') {
       router.push('/');
@@ -69,49 +78,55 @@ export function DashboardShell({ kbCount, children }: Props) {
   };
 
   return (
-    <div className="flex h-screen w-full bg-white dark:bg-[#212121] text-slate-800 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200">
-      {sidebarOpen && (
+    <div className="flex h-dvh w-full bg-[#f8f7fc] dark:bg-[#181620] text-slate-800 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200">
+      {mobileSidebarOpen && (
+        <button type="button" aria-label="Close workspace navigation" onClick={() => setMobileSidebarOpen(false)} className="fixed inset-0 z-30 bg-slate-950/45 lg:hidden" />
+      )}
+      <div className={`h-full shrink-0 ${sidebarOpen ? 'lg:block' : 'lg:hidden'} ${mobileSidebarOpen ? 'fixed inset-y-0 left-0 z-40 shadow-xl lg:static lg:shadow-none' : 'hidden'}`}>
         <AppSidebar
           auth={auth}
-          allUsers={allUsers}
-          allOrgs={allOrgs}
           chatSessions={chatSessions}
           activeSessionId={activeSessionId}
           onSelectSession={handleSelectSession}
           onNewChat={handleNewChat}
-          onCloseSidebar={() => setSidebarOpen(false)}
-          onOpenProfile={() => setProfileModalOpen(true)}
+          onSessionDeleted={(id) => {
+            setChatSessions((sessions) => sessions.filter((session) => session.id !== id));
+            if (activeSessionId === id) {
+              setActiveSessionId(null);
+              setActiveSessionTitle('');
+              setEvidenceOpen(false);
+            }
+          }}
+          onCloseSidebar={() => {
+            if (mobileSidebarOpen) setMobileSidebarOpen(false);
+            else setSidebarOpen(false);
+          }}
+          onNavigate={() => setMobileSidebarOpen(false)}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           kbCount={kbCount}
         />
-      )}
+      </div>
 
-      <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-white dark:bg-[#212121] transition-colors">
+      <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         <AppHeader
           sidebarOpen={sidebarOpen}
           onOpenSidebar={() => setSidebarOpen(true)}
-          selectedModel={selectedModel}
-          onSelectModel={setSelectedModel}
+          mobileSidebarOpen={mobileSidebarOpen}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+          title={pageTitles[pathname] ?? 'Account settings'}
+          subtitle={pathname === '/' && activeSessionTitle ? activeSessionTitle : auth.org.name}
+          incidentCount={kbCount}
           onOpenIngest={() => setIngestModalOpen(true)}
           evidenceCount={evidenceCount}
-          onToggleEvidence={() => setEvidenceOpen(!evidenceOpen)}
+          onToggleEvidence={pathname === '/' ? () => setEvidenceOpen(!evidenceOpen) : undefined}
           evidenceOpen={evidenceOpen}
-          activeSessionTitle={activeSessionTitle}
-          showEvidenceButton={pathname === '/'}
         />
 
         <main className="flex-1 flex overflow-hidden relative">
           {children}
         </main>
       </div>
-
-      <ProfileModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        user={auth.user}
-        org={auth.org}
-      />
 
       <IngestIncidentModal
         isOpen={ingestModalOpen}

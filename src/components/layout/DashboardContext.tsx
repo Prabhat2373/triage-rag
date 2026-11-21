@@ -1,13 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import type { User, Organization, ChatSession } from '@/db/schema';
-import type { AuthContext } from '@/lib/auth';
+import { DEFAULT_CHAT_MODEL, isChatModel } from '@/features/chat/types';
+import type { ChatSession } from '@/db/schema';
+import type { AuthContext } from '@/features/accounts/session';
 
 interface DashboardContextType {
   auth: AuthContext;
-  allUsers: User[];
-  allOrgs: Organization[];
   chatSessions: ChatSession[];
   setChatSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>;
   activeSessionId: number | null;
@@ -34,16 +33,12 @@ export function useDashboard() {
 
 interface ProviderProps {
   auth: AuthContext;
-  allUsers: User[];
-  allOrgs: Organization[];
   initialChatSessions: ChatSession[];
   children: React.ReactNode;
 }
 
 export function DashboardProvider({
   auth,
-  allUsers,
-  allOrgs,
   initialChatSessions,
   children,
 }: ProviderProps) {
@@ -51,7 +46,8 @@ export function DashboardProvider({
   const [activeSessionId, setActiveSessionId] = useState<number | null>(
     initialChatSessions.length > 0 ? initialChatSessions[0].id : null
   );
-  const [selectedModel, setSelectedModel] = useState<string>('qwen3.5:4b');
+  const initialModel = initialChatSessions[0]?.model;
+  const [selectedModel, setSelectedModel] = useState<string>(isChatModel(initialModel) ? initialModel : DEFAULT_CHAT_MODEL);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [evidenceCount, setEvidenceCount] = useState(0);
   const [activeSessionTitle, setActiveSessionTitle] = useState(
@@ -62,8 +58,6 @@ export function DashboardProvider({
     <DashboardContext.Provider
       value={{
         auth,
-        allUsers,
-        allOrgs,
         chatSessions,
         setChatSessions,
         activeSessionId,

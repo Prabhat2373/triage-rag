@@ -13,9 +13,18 @@ export const users = pgTable('users', {
   orgId: integer('org_id').references(() => organizations.id).notNull(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
+  passwordHash: text('password_hash'),
+  invitationHash: text('invitation_hash'),
+  invitationExpiresAt: timestamp('invitation_expires_at', { withTimezone: true }),
   role: text('role').notNull().default('member'), // 'admin' | 'member'
   avatar: text('avatar').notNull().default('https://api.dicebear.com/7.x/bottts/svg?seed=user'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const accountSessions = pgTable('account_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
 
 export const tickets = pgTable(
@@ -28,6 +37,7 @@ export const tickets = pgTable(
     title: text('title').notNull(),
     symptom: text('symptom').notNull(),
     resolution: text('resolution').notNull(),
+    sourceUrl: text('source_url'),
     embedding: vector('embedding', { dimensions: 768 }).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -46,6 +56,13 @@ export const integrations = pgTable('integrations', {
   enabled: boolean('enabled').notNull().default(true),
   events: text('events').notNull().default('["incident_ingested", "critical_triage"]'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const githubConnections = pgTable('github_connections', {
+  orgId: integer('org_id').primaryKey().references(() => organizations.id, { onDelete: 'cascade' }),
+  owner: text('owner').notNull(),
+  repo: text('repo').notNull(),
+  label: text('label').notNull().default(''),
 });
 
 export const auditLogs = pgTable('audit_logs', {
@@ -154,7 +171,7 @@ export const ticketsRelations = relations(tickets, ({ one }) => ({
 }));
 
 export type Organization = typeof organizations.$inferSelect;
-export type User = typeof users.$inferSelect;
+export type User = Omit<typeof users.$inferSelect, 'passwordHash' | 'invitationHash' | 'invitationExpiresAt'>;
 export type Ticket = typeof tickets.$inferSelect;
 export type NewTicket = typeof tickets.$inferInsert;
 export type Integration = typeof integrations.$inferSelect;

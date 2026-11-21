@@ -1,9 +1,10 @@
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext } from '@/features/accounts/session';
 import { db } from '@/db';
 import { auditLogs } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
+import { publicAuditDetails } from '@/features/audit/log-event';
 import { redirect } from 'next/navigation';
-import { AuditView } from '@/components/audit/AuditView';
+import { AuditView } from '@/features/audit/ui/AuditView';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export default async function AuditPage() {
   if (!auth) {
     redirect('/login');
   }
+  if (!auth.isAdmin) redirect('/');
 
   const auditLogsList = await db
     .select()
@@ -20,5 +22,5 @@ export default async function AuditPage() {
     .orderBy(desc(auditLogs.createdAt))
     .limit(100);
 
-  return <AuditView auth={auth} auditLogs={auditLogsList} />;
+  return <AuditView auth={auth} auditLogs={auditLogsList.map((event) => ({ ...event, details: publicAuditDetails(event.action, event.details) }))} />;
 }

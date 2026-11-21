@@ -1,96 +1,65 @@
-'use client';
-
-import React from 'react';
-import { PanelLeft, ChevronDown, SlidersHorizontal, Plus, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { BookOpen, PanelLeft, Plus, ScanSearch } from 'lucide-react';
 
 interface Props {
+  title: string;
+  subtitle: string;
   sidebarOpen: boolean;
+  mobileSidebarOpen: boolean;
   onOpenSidebar: () => void;
-  selectedModel: string;
-  onSelectModel: (model: string) => void;
+  onOpenMobileSidebar: () => void;
+  incidentCount: number;
   onOpenIngest: () => void;
   evidenceCount?: number;
   onToggleEvidence?: () => void;
   evidenceOpen?: boolean;
-  activeSessionTitle?: string;
-  showEvidenceButton?: boolean;
 }
 
 export function AppHeader({
-  sidebarOpen,
-  onOpenSidebar,
-  selectedModel,
-  onSelectModel,
-  onOpenIngest,
-  evidenceCount = 0,
-  onToggleEvidence,
-  evidenceOpen = false,
-  activeSessionTitle,
-  showEvidenceButton = false,
+  title, subtitle, sidebarOpen, mobileSidebarOpen, onOpenSidebar, onOpenMobileSidebar,
+  incidentCount, onOpenIngest, evidenceCount = 0, onToggleEvidence, evidenceOpen = false,
 }: Props) {
+  const sidebarButtonStyle = 'size-10 shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-violet-50 focus-visible:outline-2 focus-visible:outline-violet-500 dark:text-slate-300 dark:hover:bg-white/10';
+
   return (
-    <header className="h-14 border-b border-slate-200/80 dark:border-white/10 px-4 flex items-center justify-between shrink-0 bg-white/80 dark:bg-[#212121]/80 backdrop-blur-md z-20">
-      <div className="flex items-center gap-2">
-        {!sidebarOpen && (
-          <button
-            onClick={onOpenSidebar}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer mr-1"
-            title="Open sidebar"
-          >
-            <PanelLeft className="h-4 w-4" />
+    <header className="z-20 flex min-h-[72px] shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 bg-white px-3 sm:gap-4 sm:px-6 dark:border-white/10 dark:bg-[#201d29]">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        {!mobileSidebarOpen && (
+          <button type="button" onClick={onOpenMobileSidebar} aria-label="Open workspace navigation" className={`grid ${sidebarButtonStyle} lg:hidden`}>
+            <PanelLeft aria-hidden="true" className="size-5" />
           </button>
         )}
-
-        {/* Model Selector Pill (ChatGPT style) */}
-        <div className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer">
-          <span className="text-xs font-bold text-slate-800 dark:text-white">
-            TriageRAG
-          </span>
-          <span className="text-[11px] font-mono text-slate-400">
-            {selectedModel}
-          </span>
-          <ChevronDown className="h-3 w-3 text-slate-400" />
-          <select
-            value={selectedModel}
-            onChange={(e) => onSelectModel(e.target.value)}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-          >
-            <option value="qwen3.5:4b">qwen3.5:4b (Default · 4B)</option>
-            <option value="llama3.2:1b">llama3.2:1b (Ultra-Fast · 1B)</option>
-          </select>
-        </div>
-
-        {/* Active Session Title Pill */}
-        {activeSessionTitle && (
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-[11px] text-slate-600 dark:text-slate-300 font-medium max-w-[280px] truncate border border-slate-200/60 dark:border-white/10">
-            <Sparkles className="h-3 w-3 text-indigo-500 shrink-0" />
-            <span className="truncate">{activeSessionTitle}</span>
-          </div>
+        {!sidebarOpen && (
+          <button type="button" onClick={onOpenSidebar} aria-label="Open workspace navigation" className={`hidden ${sidebarButtonStyle} lg:grid`}>
+            <PanelLeft aria-hidden="true" className="size-5" />
+          </button>
         )}
+        <div className="min-w-0">
+          <p className="truncate text-[0.9375rem] font-semibold tracking-tight text-slate-950 dark:text-white">{title}</p>
+          <p className="truncate text-xs text-slate-600 sm:text-sm dark:text-slate-400">{subtitle}</p>
+        </div>
       </div>
 
-      {/* Right Header Actions */}
-      <div className="flex items-center gap-2">
-        {showEvidenceButton && onToggleEvidence && (
-          <button
-            onClick={onToggleEvidence}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition cursor-pointer ${
-              evidenceOpen
-                ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30'
-                : 'bg-white dark:bg-[#212121] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
-            }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            Evidence Inspector ({evidenceCount})
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <Link
+          href="/knowledge-base"
+          aria-label={`Knowledge base, ${incidentCount} resolved incidents`}
+          className="hidden min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-slate-600 hover:bg-violet-50 focus-visible:outline-2 focus-visible:outline-violet-500 sm:inline-flex dark:text-slate-200 dark:hover:bg-white/10"
+        >
+          <BookOpen aria-hidden="true" className="size-4 text-violet-700 dark:text-violet-300" />
+          <span className="hidden xl:inline">Knowledge base</span>
+          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs tabular-nums dark:bg-white/10">{incidentCount}</span>
+        </Link>
+        {onToggleEvidence && (
+          <button type="button" onClick={onToggleEvidence} aria-label={`Evidence, ${evidenceCount} sources`} aria-expanded={evidenceOpen} className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-violet-500 sm:px-3 ${evidenceOpen ? 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-200' : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'}`}>
+            <ScanSearch aria-hidden="true" className="size-4" />
+            <span className="hidden md:inline">Evidence</span>
+            <span className="tabular-nums">{evidenceCount}</span>
           </button>
         )}
-
-        <button
-          onClick={onOpenIngest}
-          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Ingest Incident
+        <button type="button" onClick={onOpenIngest} aria-label="Add resolved incident" className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-violet-700 px-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:px-3">
+          <Plus aria-hidden="true" className="size-4" />
+          <span className="hidden sm:inline">Add incident</span>
         </button>
       </div>
     </header>

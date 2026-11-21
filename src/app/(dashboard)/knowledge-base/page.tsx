@@ -1,9 +1,7 @@
-import { getAuthContext } from '@/lib/auth';
-import { db } from '@/db';
-import { tickets } from '@/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { getAuthContext } from '@/features/accounts/session';
+import { listIncidents } from '@/features/incidents/incident-records';
 import { redirect } from 'next/navigation';
-import { KnowledgeBaseView } from '@/components/kb/KnowledgeBaseView';
+import { KnowledgeBaseView } from '@/features/incidents/ui/KnowledgeBaseView';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +11,7 @@ export default async function KnowledgeBasePage() {
     redirect('/login');
   }
 
-  const ticketsList = await db
-    .select()
-    .from(tickets)
-    .where(eq(tickets.orgId, auth.org.id))
-    .orderBy(desc(tickets.createdAt));
+  const ticketsList = await listIncidents(auth.org.id);
 
   return <KnowledgeBaseView auth={auth} tickets={ticketsList} />;
 }
