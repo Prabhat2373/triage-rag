@@ -2,8 +2,8 @@ import { isDemoMode } from '@/features/demo/config';
 import { getAuthContext } from '@/features/accounts/session';
 import { sanitizeText } from '@/features/privacy/redact';
 import { db } from '@/db';
-import { tickets, chatSessions } from '@/db/schema';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { tickets, chatMessages, chatSessions } from '@/db/schema';
+import { and, count, desc, eq, exists } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { DashboardProvider } from '@/components/layout/DashboardContext';
 import { DashboardShell } from '@/components/layout/DashboardShell';
@@ -25,9 +25,11 @@ export default async function DashboardLayout({
 
   // Multi-tenant and user-isolated queries
   const userChatSessions = await db
-    .select()
+    .select({ id: chatSessions.id, title: chatSessions.title, model: chatSessions.model })
     .from(chatSessions)
-    .where(and(eq(chatSessions.orgId, auth.org.id), eq(chatSessions.userId, auth.user.id)))
+    .where(and(eq(chatSessions.orgId, auth.org.id), eq(chatSessions.userId, auth.user.id),
+      exists(db.select({ id: chatMessages.id }).from(chatMessages).where(eq(chatMessages.sessionId, chatSessions.id))),
+    ))
     .orderBy(desc(chatSessions.updatedAt));
 
   const [{ total: incidentCount }] = await db

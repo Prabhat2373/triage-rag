@@ -5,3 +5,12 @@
 *.tsbuildinfo
 .env*
 !.env.example
+
+# Local credential and database exports
+*.pem
+*.key
+*.p12
+*.pfx
+*.dump
+credentials.json
+.DS_Store

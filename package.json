@@ -40,5 +40,22 @@
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "formik": {
+      "lodash": "^4.18.1",
+      "lodash-es": "^4.18.1"
+    },
+    "exceljs": {
+      "uuid": "^11.1.1",
+      "readdir-glob": {
+        "minimatch": {
+          "brace-expansion": "^2.1.7"
+        }
+      }
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
   }
 }

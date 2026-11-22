@@ -34,6 +34,8 @@ ollama pull llama3.2:1b
 npm run dev
 ```
 
+For local development from another device, set `DEV_ALLOWED_ORIGIN` in your local environment to the development hostname or LAN IP, without a port or scheme.
+
 Open [localhost:4000](http://localhost:4000) and register a workspace. In Knowledge Base, add an incident manually or choose **Import Excel** to download a template and upload up to 100 resolved incidents. Then start a new chat and ask a related question. Chats started with **New Triage Chat** save their history. Open **Account settings** from the sidebar profile card to edit your profile or change your password. Workspace administrators can also invite colleagues and manage roles under **Team**. The recipient enters the 24-hour code and chooses a password on the [invitation page](http://localhost:4000/invitation).
 
 Chat uses PostgreSQL sessions and secure production cookies. Deploy behind HTTPS and apply request rate limits at the gateway for sign-in, registration, and chat. Webhooks are optional outbound connections. The current allowlist covers Slack incoming webhooks and legacy Teams connectors. Seeded placeholder URLs and the PagerDuty connector are simulated.

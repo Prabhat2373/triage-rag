@@ -21,12 +21,12 @@ import {
 } from 'lucide-react';
 import { logoutAction } from '@/features/accounts/actions';
 import { deleteChatSessionAction } from '@/features/chat/actions';
-import type { ChatSession } from '@/db/schema';
+import type { ChatSessionSummary } from '@/features/chat/types';
 import type { AuthContext } from '@/features/accounts/session';
 
 interface Props {
   auth: AuthContext;
-  chatSessions: ChatSession[];
+  chatSessions: ChatSessionSummary[];
   activeSessionId: number | null;
   onSelectSession?: (id: number) => void;
   onNewChat?: () => void;
@@ -132,8 +132,8 @@ export function AppSidebar({
         </button>
 
         {/* Dedicated App Pages Navigation */}
-        <div className="space-y-0.5">
-          <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider px-2 py-0.5">
+        <nav aria-label="Workspace" className="space-y-1">
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider px-2 py-0.5">
             Workspace
           </div>
 
@@ -146,14 +146,14 @@ export function AppSidebar({
                 href={item.href}
                 onClick={onNavigate}
                 aria-current={isActive ? 'page' : undefined}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 min-h-10 rounded-lg border text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 dark:focus-visible:outline-violet-300 ${
                   isActive
-                    ? 'bg-violet-100 dark:bg-violet-400/15 text-violet-950 dark:text-violet-100 font-semibold'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/5'
+                    ? 'border-violet-200 bg-violet-100 text-violet-950 dark:border-violet-300/25 dark:bg-violet-400/20 dark:text-violet-100'
+                    : 'border-transparent text-slate-900 dark:text-slate-100 hover:bg-white dark:hover:bg-white/10 hover:text-violet-900 dark:hover:text-violet-100'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400'}`} />
+                  <Icon aria-hidden="true" className="size-4 shrink-0 text-violet-700 dark:text-violet-300" />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
@@ -164,7 +164,7 @@ export function AppSidebar({
               </Link>
             );
           })}
-        </div>
+        </nav>
       </div>
 
       {/* Middle Scrollable Section: User-Isolated Chat History */}
@@ -189,16 +189,16 @@ export function AppSidebar({
             return (
               <div
                 key={session.id}
-                className={`group relative flex items-center justify-between px-2.5 py-1 rounded-xl text-sm transition ${
+                className={`group relative flex items-center justify-between px-2.5 py-1 rounded-lg border text-sm font-medium transition ${
                   isSelected
-                    ? 'bg-slate-200/90 dark:bg-white/10 text-slate-900 dark:text-white font-semibold shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/5'
+                    ? 'border-violet-200 bg-white text-slate-950 font-semibold shadow-2xs dark:border-violet-300/25 dark:bg-white/10 dark:text-white'
+                    : 'border-transparent text-slate-900 dark:text-slate-100 hover:bg-white dark:hover:bg-white/10 hover:text-violet-900 dark:hover:text-violet-100'
                 }`}
               >
                 <button type="button" aria-current={isSelected ? 'true' : undefined} onClick={() => onSelectSession?.(session.id)} className="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 rounded-md pr-1 text-left focus-visible:outline-2 focus-visible:outline-violet-500">
                   <MessageSquare
                     className={`h-3.5 w-3.5 shrink-0 ${
-                      isSelected ? 'text-indigo-500' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200'
+                      isSelected ? 'text-violet-700 dark:text-violet-300' : 'text-slate-600 dark:text-slate-300'
                     }`}
                   />
                   <span className="truncate">{session.title || 'Untitled chat'}</span>

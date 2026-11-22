@@ -66,7 +66,7 @@ function readSources(savedSources: string | null): SourceItem[] | undefined {
 }
 
 export async function saveChatExchange(auth: AuthContext, exchange: {
-  sessionId: number;
+  sessionId?: number | null;
   query: string;
   answer: string;
   model: string;
@@ -74,18 +74,27 @@ export async function saveChatExchange(auth: AuthContext, exchange: {
   retrievalLatencyMs: number;
   redactedCount: number;
 }) {
-  const { sessionId, model, sources, retrievalLatencyMs, redactedCount } = exchange;
+  const { model, sources, retrievalLatencyMs, redactedCount } = exchange;
   const query = sanitizeText(exchange.query).sanitized;
   const answer = sanitizeText(exchange.answer).sanitized;
 
   return db.transaction(async (transaction) => {
-    const [session] = await transaction.select({ title: chatSessions.title })
-      .from(chatSessions).where(ownedSession(sessionId, auth)).for('update');
-    if (!session) throw new Error('Chat session is no longer available.');
-
-    const title = session.title === 'New Triage Session'
-      ? query.length > 48 ? `${query.slice(0, 48)}…` : query
-      : sanitizeText(session.title).sanitized;
+    const firstTitle = query.length > 48 ? `${query.slice(0, 48)}…` : query;
+    let sessionId = exchange.sessionId;
+    let title = firstTitle;
+    if (sessionId == null) {
+      const [created] = await transaction.insert(chatSessions).values({
+        orgId: auth.org.id, userId: auth.user.id, title, model,
+      }).returning({ id: chatSessions.id });
+      sessionId = created.id;
+    } else {
+      const [session] = await transaction.select({ title: chatSessions.title })
+        .from(chatSessions).where(ownedSession(sessionId, auth)).for('update');
+      if (!session) throw new Error('Chat session is no longer available.');
+      title = session.title === 'New Triage Session' ? firstTitle : sanitizeText(session.title).sanitized;
+      await transaction.update(chatSessions).set({ title, model, updatedAt: new Date() })
+        .where(ownedSession(sessionId, auth));
+    }
 
     await transaction.insert(chatMessages).values([
       { sessionId, role: 'user', content: query, model },
@@ -94,8 +103,6 @@ export async function saveChatExchange(auth: AuthContext, exchange: {
         sources: JSON.stringify(sources.map(redactSource)), retrievalLatencyMs, redactedCount,
       },
     ]);
-    await transaction.update(chatSessions).set({ title, model, updatedAt: new Date() })
-      .where(ownedSession(sessionId, auth));
-    return title;
+    return { id: sessionId, title, model };
   });
 }

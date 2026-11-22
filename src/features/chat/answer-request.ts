@@ -147,10 +147,10 @@ When the records don't answer the question, say so briefly and offer one or two 
 
         signal.throwIfAborted();
         if (!answer.trim()) throw new Error('The model returned an empty answer.');
-        const title = sessionId == null ? undefined : await saveChatExchange(auth, {
+        const session = await saveChatExchange(auth, {
           sessionId, query, answer, model, sources, retrievalLatencyMs, redactedCount,
         });
-        yield { type: 'done', title };
+        yield { type: 'done', session };
       } catch (error) {
         if (!signal.aborted) {
           console.warn('Chat response failed', { model, errorType: error instanceof Error ? error.name : 'Unknown' });

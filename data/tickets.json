@@ -24,7 +24,7 @@
     "ticketCode": "TKT-1004",
     "category": "POS & Hardware",
     "title": "Thermal Receipt Printer Timeout via ESC/POS Network Socket",
-    "symptom": "POS terminal fails to print customer receipts, hanging for 30 seconds before throwing SocketTimeoutException or 'Network printer unreachable at 192.168.1.150:9100'.",
+    "symptom": "POS terminal fails to print customer receipts, hanging for 30 seconds before throwing SocketTimeoutException or 'Network printer unreachable at 192.0.2.150:9100'.",
     "resolution": "The POS printer had a DHCP lease expiration which reassigned its IP. Bound the thermal printer MAC address to a static IP reservation in the router. Updated the POS bridge service socket timeout from 30s to 5s with an automatic retry and offline receipt spooling."
   },
   {

@@ -19,10 +19,16 @@ export interface ChatMessage {
   redactedCount?: number;
 }
 
+export interface ChatSessionSummary {
+  id: number;
+  title: string;
+  model: string;
+}
+
 export const MAX_CHAT_QUERY_LENGTH = 8000;
 
 export type ChatStreamEvent =
   | { type: 'evidence'; sources: SourceItem[]; retrievalLatencyMs: number; redactedCount: number; query: string }
   | { type: 'text'; text: string }
-  | { type: 'done'; title?: string }
+  | { type: 'done'; session?: ChatSessionSummary }
   | { type: 'error'; message: string };

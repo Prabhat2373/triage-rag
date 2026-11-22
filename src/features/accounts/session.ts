@@ -2,6 +2,7 @@ import { isDemoMode } from '@/features/demo/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
+import { readDatabaseFailure } from '@/db/error';
 import { accountSessions, users, organizations, type User, type Organization } from '@/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
 
@@ -82,7 +83,13 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     .innerJoin(users, eq(users.id, accountSessions.userId))
     .innerJoin(organizations, eq(organizations.id, users.orgId))
     .where(and(eq(accountSessions.tokenHash, hashSessionToken(token)), gt(accountSessions.expiresAt, new Date())))
-    .limit(1);
+    .limit(1)
+    .catch((error: unknown) => {
+      const { code } = readDatabaseFailure(error);
+      // Drizzle's error includes SQL parameters. Keep those out of Next.js error output.
+      console.error('Unable to check the account session', { code });
+      throw new Error('Unable to check your session. Please try again or contact your workspace administrator.');
+    });
 
   if (!account) return null;
   const { user: currentUser, org: currentOrg } = account;

@@ -1,6 +1,5 @@
 /**
- * Enterprise PII & Secret Redaction Pipeline
- * Masks API keys, tokens, credentials, connection strings, emails, and sensitive IDs.
+ * Masks recognizable credentials, email addresses, and card numbers in incident text.
  */
 
 export interface SanitizeResult {
@@ -16,7 +15,17 @@ export function sanitizeText(input: string): SanitizeResult {
   let count = 0;
   const types = new Set<string>();
 
-  // 1. JWT Tokens (eyJ...)
+  // Mask passwords embedded in database connection strings.
+  const dbUriRegex = /(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?):\/\/([^:/@\s]+):([^@/\s]+)@([^/\s]+)/gi;
+  if (dbUriRegex.test(text)) {
+    text = text.replace(dbUriRegex, (_match, proto, user, _pass, host) => {
+      count++;
+      types.add('Database Secret');
+      return `${proto}://${user}:[REDACTED_SECRET]@${host}`;
+    });
+  }
+
+  // JWT Tokens (eyJ...)
   const jwtRegex = /\beyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*\b/g;
   if (jwtRegex.test(text)) {
     text = text.replace(jwtRegex, () => {
@@ -26,8 +35,16 @@ export function sanitizeText(input: string): SanitizeResult {
     });
   }
 
-  // 2. Stripe / OpenAI / GitHub / AWS API Keys
-  const apiKeyRegex = /\b(sk_live_[a-zA-Z0-9]{20,}|sk_test_[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z-_]{35})\b/g;
+  // Webhook URLs grant posting access to their destination.
+  const webhookUrl = /https:\/\/(?:hooks\.slack\.com\/services\/|(?:[a-z0-9-]+\.)*webhook\.office\.com\/webhookb2\/)[^\s<>"']+/gi;
+  text = text.replace(webhookUrl, () => {
+    count++;
+    types.add('Webhook Secret');
+    return '[REDACTED_WEBHOOK_URL]';
+  });
+
+  // Recognizable provider credentials.
+  const apiKeyRegex = /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|sk_(?:live|test)_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{35}|AQ\.[A-Za-z0-9_-]{25,}|npg_[A-Za-z0-9]{10,})(?![A-Za-z0-9_-])/g;
   if (apiKeyRegex.test(text)) {
     text = text.replace(apiKeyRegex, () => {
       count++;
@@ -36,7 +53,7 @@ export function sanitizeText(input: string): SanitizeResult {
     });
   }
 
-  // 3. Bearer Authorization Headers
+  // Bearer authorization headers.
   const bearerRegex = /Bearer\s+([a-zA-Z0-9_\-\.]{20,})/gi;
   if (bearerRegex.test(text)) {
     text = text.replace(bearerRegex, () => {
@@ -46,23 +63,13 @@ export function sanitizeText(input: string): SanitizeResult {
     });
   }
 
-  // 4. Database Connection Strings with Passwords
-  const dbUriRegex = /(postgres|postgresql|mysql|mongodb|redis):\/\/([^:]+):([^@]+)@([^\/\s]+)/gi;
-  if (dbUriRegex.test(text)) {
-    text = text.replace(dbUriRegex, (_match, proto, user, _pass, host) => {
-      count++;
-      types.add('Database Secret');
-      return `${proto}://${user}:[REDACTED_SECRET]@${host}`;
-    });
-  }
-
   text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, () => {
     count++;
     types.add('Email Address');
     return '[REDACTED_EMAIL]';
   });
 
-  // 5. Credit Cards (Luhn candidate strings 13-19 digits)
+  // Mask card numbers written in common four-digit groups.
   const ccRegex = /\b(?:\d{4}[-\s]?){3}\d{4}\b/g;
   if (ccRegex.test(text)) {
     text = text.replace(ccRegex, () => {

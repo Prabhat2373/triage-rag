@@ -8,7 +8,6 @@ import { IngestIncidentModal } from '@/features/incidents/ui/IngestIncidentModal
 import { useTheme } from '@/hooks/useTheme';
 import { useDashboard } from './DashboardContext';
 import { isChatModel } from '@/features/chat/models/catalog';
-import { createChatSessionAction } from '@/features/chat/actions';
 
 const pageTitles: Record<string, string> = {
   '/': 'Incident copilot',
@@ -35,41 +34,40 @@ export function DashboardShell({ kbCount, children }: Props) {
     auth,
     chatSessions,
     setChatSessions,
-    activeSessionId,
-    setActiveSessionId,
-    selectedModel,
+    activeChat,
+    setActiveChat,
     setSelectedModel,
     evidenceOpen,
     setEvidenceOpen,
     evidenceCount,
-    activeSessionTitle,
-    setActiveSessionTitle,
+    setEvidenceCount,
   } = useDashboard();
 
-  const handleNewChat = async () => {
+  const activeSessionId = activeChat.sessionId;
+  const activeSessionTitle = chatSessions.find(({ id }) => id === activeSessionId)?.title;
+  const handleNewChat = () => {
     setMobileSidebarOpen(false);
     if (pathname !== '/') {
       router.push('/');
     }
-    try {
-      const res = await createChatSessionAction('New Triage Session', selectedModel);
-      if (res.success && res.session) {
-        const session = res.session;
-        setChatSessions((prev) => [session, ...prev]);
-        setActiveSessionId(session.id);
-        setActiveSessionTitle('New Triage Session');
-      }
-    } catch {
-      setActiveSessionId(null);
-    }
+    setActiveChat((current) => ({
+      kind: 'draft',
+      version: current.kind === 'draft' ? current.version + 1 : 0,
+      sessionId: null,
+    }));
+    setEvidenceOpen(false);
+    setEvidenceCount(0);
   };
 
   const handleSelectSession = (id: number) => {
     setMobileSidebarOpen(false);
-    setActiveSessionId(id);
+    if (id !== activeSessionId) {
+      setActiveChat({ kind: 'history', sessionId: id });
+      setEvidenceOpen(false);
+      setEvidenceCount(0);
+    }
     const found = chatSessions.find((s) => s.id === id);
     if (found) {
-      setActiveSessionTitle(found.title);
       if (isChatModel(found.model)) setSelectedModel(found.model);
     }
     if (pathname !== '/') {
@@ -91,10 +89,12 @@ export function DashboardShell({ kbCount, children }: Props) {
           onNewChat={handleNewChat}
           onSessionDeleted={(id) => {
             setChatSessions((sessions) => sessions.filter((session) => session.id !== id));
+            setActiveChat((current) => current.sessionId === id
+              ? { kind: 'draft', version: current.kind === 'draft' ? current.version + 1 : 0, sessionId: null }
+              : current);
             if (activeSessionId === id) {
-              setActiveSessionId(null);
-              setActiveSessionTitle('');
               setEvidenceOpen(false);
+              setEvidenceCount(0);
             }
           }}
           onCloseSidebar={() => {

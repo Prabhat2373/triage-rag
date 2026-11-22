@@ -2,82 +2,76 @@
 
 import { useEffect, useState } from 'react';
 import type { IncidentSuggestionState } from '../retrieval/suggestions';
+import { ChatHistorySkeleton } from './ChatHistorySkeleton';
 import { ChatInterface } from './ChatInterface';
 import { useDashboard } from '@/components/layout/DashboardContext';
 import { getSessionMessagesAction } from '@/features/chat/actions';
 import { DEFAULT_CHAT_MODEL, isChatModel, type ChatModelOption } from '../models/catalog';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, ChatSessionSummary } from '../types';
 
-type LoadedHistory = {
-  sessionId: number;
-  messages: ChatMessage[];
-  error?: string;
-};
+type Props = { incidentSuggestions: IncidentSuggestionState; modelOptions: ChatModelOption[] };
+type History = { messages: ChatMessage[] } | { error: string };
 
-export function CopilotPageClient({ incidentSuggestions, modelOptions }: { incidentSuggestions: IncidentSuggestionState; modelOptions: ChatModelOption[] }) {
+export function CopilotPageClient(props: Props) {
+  const { activeChat } = useDashboard();
+  const viewKey = activeChat.kind === 'draft' ? `draft-${activeChat.version}` : `history-${activeChat.sessionId}`;
+  return <ActiveConversation key={viewKey} {...props} />;
+}
+
+function ActiveConversation({ incidentSuggestions, modelOptions }: Props) {
   const {
-    activeSessionId,
+    activeChat,
+    setActiveChat,
     selectedModel,
     setSelectedModel,
     setChatSessions,
     evidenceOpen,
     setEvidenceOpen,
     setEvidenceCount,
-    setActiveSessionTitle,
   } = useDashboard();
 
-  const [history, setHistory] = useState<LoadedHistory | null>(null);
+  // A draft keeps the same view when its first exchange is saved.
+  const [initialSessionId] = useState(activeChat.sessionId);
+  const [history, setHistory] = useState<History | null>(null);
 
   useEffect(() => {
-    if (activeSessionId === null) return;
+    if (initialSessionId === null) return;
 
     let cancelled = false;
-    async function loadHistory(sessionId: number) {
-      try {
-        const result = await getSessionMessagesAction(sessionId);
-        if (cancelled) return;
-        if (!result.success || !result.messages || !result.session) {
-          throw new Error('Unable to load this conversation.');
-        }
-        setHistory({ sessionId, messages: result.messages });
-        setActiveSessionTitle(result.session.title);
-        if (isChatModel(result.session.model)) setSelectedModel(result.session.model);
-      } catch {
-        if (!cancelled) setHistory({ sessionId, messages: [], error: 'Unable to load this conversation.' });
-      }
-    }
-
-    void loadHistory(activeSessionId);
+    void getSessionMessagesAction(initialSessionId).then((result) => {
+      if (cancelled) return;
+      if (!result.success || !result.messages || !result.session) throw new Error();
+      setHistory({ messages: result.messages });
+      if (isChatModel(result.session.model)) setSelectedModel(result.session.model);
+    }).catch(() => {
+      if (!cancelled) setHistory({ error: 'Unable to load this conversation.' });
+    });
     return () => {
       cancelled = true;
     };
-  }, [activeSessionId, setActiveSessionTitle, setSelectedModel]);
+  }, [initialSessionId, setSelectedModel]);
 
-  function updateSessionTitle(sessionId: number, title: string) {
-    setActiveSessionTitle(title);
-    setChatSessions((sessions) =>
-      sessions.map((session) => session.id === sessionId ? { ...session, title, updatedAt: new Date() } : session)
-    );
+  function updateSession(session: ChatSessionSummary) {
+    setChatSessions((sessions) => [session, ...sessions.filter(({ id }) => id !== session.id)]);
+    if (activeChat.kind === 'draft' && activeChat.sessionId === null) {
+      setActiveChat((current) => current === activeChat ? { ...activeChat, sessionId: session.id } : current);
+    }
   }
 
-  const sessionHistory = activeSessionId === history?.sessionId ? history : null;
-  if (activeSessionId !== null && !sessionHistory) {
-    return <div className="p-6 text-sm" role="status">Loading conversation history…</div>;
-  }
-  if (sessionHistory?.error) {
-    return <div className="p-6 text-sm" role="alert">{sessionHistory.error}</div>;
+  if (initialSessionId !== null && !history) return <ChatHistorySkeleton />;
+  if (history && 'error' in history) {
+    return <div className="p-6 text-sm" role="alert">{history.error}</div>;
   }
 
   return (
     <ChatInterface
-      key={activeSessionId ?? 'unsaved'}
       incidentSuggestions={incidentSuggestions}
-      initialChatMessages={sessionHistory?.messages ?? []}
-      activeSessionId={activeSessionId}
+      initialChatMessages={history?.messages ?? []}
+      activeSessionId={activeChat.sessionId}
       selectedModel={modelOptions.some(({ id, available }) => id === selectedModel && available) ? selectedModel : DEFAULT_CHAT_MODEL}
       modelOptions={modelOptions}
       onSelectModel={setSelectedModel}
-      onSessionUpdated={updateSessionTitle}
+      onSessionUpdated={updateSession}
       evidenceOpen={evidenceOpen}
       onCloseEvidence={() => setEvidenceOpen(false)}
       onOpenEvidence={() => setEvidenceOpen(true)}

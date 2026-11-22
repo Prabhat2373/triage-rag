@@ -32,6 +32,23 @@ test('query text masks email addresses and connection-string passwords', () => {
   assert.equal(result.redactedCount, 2);
 });
 
+test('chat and incident redaction masks current provider credentials and webhook URLs', () => {
+  const githubPat = 'github_pat_' + 'a'.repeat(32);
+  const googleKey = 'AQ.' + 'b'.repeat(32);
+  const openAiKey = 'sk-proj-' + 'c'.repeat(32);
+  const neonPassword = 'npg_' + 'd'.repeat(12);
+  const webhook = 'https://hooks.slack.com/services/T123/B123/test-token';
+  const examples = [githubPat, googleKey, openAiKey, neonPassword, webhook];
+  const result = sanitizeText(examples.join(' '));
+  assert.equal(result.redactedCount, examples.length);
+  assert.ok(examples.every((secret) => !result.sanitized.includes(secret)));
+  assert.deepEqual(new Set(result.redactedTypes), new Set(['API Key', 'Webhook Secret']));
+
+  const db = sanitizeText(`postgresql://dbuser:${neonPassword}@db.example/neondb`);
+  assert.equal(db.sanitized, 'postgresql://dbuser:[REDACTED_SECRET]@db.example/neondb');
+  assert.equal(db.redactedCount, 1);
+});
+
 test('large evidence travels in the body and fragmented text decodes correctly', async () => {
   const events: ChatStreamEvent[] = [
     {
@@ -42,7 +59,7 @@ test('large evidence travels in the body and fragmented text decodes correctly',
       }],
     },
     { type: 'text', text: 'Resolved 🔧' },
-    { type: 'done', title: 'Example question' },
+    { type: 'done', session: { id: 1, title: 'Example question', model: 'qwen3.5:4b' } },
   ];
   async function* responseEvents() {
     yield* events;

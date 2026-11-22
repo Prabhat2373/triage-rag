@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
-  allowedDevOrigins: ['192.168.0.119'],
+  logging: {
+    // Authentication and integration actions can accept credentials.
+    serverFunctions: false,
+  },
+  allowedDevOrigins: process.env.DEV_ALLOWED_ORIGIN ? [process.env.DEV_ALLOWED_ORIGIN] : [],
 };
 
 export default nextConfig;

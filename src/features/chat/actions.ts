@@ -3,12 +3,14 @@
 import { and, eq } from 'drizzle-orm';
 
 import { revalidatePath } from 'next/cache';
+import { redirect, RedirectType } from 'next/navigation';
 import { db } from '@/db';
+import { readDatabaseFailure } from '@/db/error';
 import { evaluations, chatSessions } from '@/db/schema';
 import { getAuthContext } from '@/features/accounts/session';
 import { sanitizeText } from '@/features/privacy/redact';
 import { ownedSession, readChatHistory } from './conversation/history';
-import { DEFAULT_CHAT_MODEL, isChatModel } from './models/catalog';
+import { isChatModel } from './models/catalog';
 
 /**
  * Record evaluation feedback (👍 / 👎)
@@ -66,57 +68,35 @@ export async function submitEvaluation(data: {
 }
 
 /**
- * Create a new chat session for the current user
- */
-export async function createChatSessionAction(title?: string, model?: string) {
-  const auth = await getAuthContext();
-  if (!auth) return { success: false, error: 'Unauthorized' };
-
-  if (title !== undefined && (typeof title !== 'string' || title.length > 120)) {
-    return { success: false, error: 'Invalid conversation title.' };
-  }
-
-  try {
-    const inserted = await db
-      .insert(chatSessions)
-      .values({
-        orgId: auth.org.id,
-        userId: auth.user.id,
-        title: sanitizeText(title || '').sanitized.trim().slice(0, 120) || 'New Triage Session',
-        model: isChatModel(model) ? model : DEFAULT_CHAT_MODEL,
-      })
-      .returning();
-
-    revalidatePath('/');
-    return { success: true, session: inserted[0] };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to create chat session';
-    return { success: false, error: msg };
-  }
-}
-
-/**
  * Fetch messages for a session - enforces strict per-user ownership!
  */
 export async function getSessionMessagesAction(sessionId: number) {
-  const auth = await getAuthContext();
-  if (!auth) return { success: false, error: 'Unauthorized' };
-
-  const sessionRows = await db
-    .select()
-    .from(chatSessions)
-    .where(ownedSession(sessionId, auth))
-    .limit(1);
-
-  if (sessionRows.length === 0) {
-    return { success: false, error: 'Forbidden: You do not have permission to access this chat history.' };
+  if (!Number.isInteger(sessionId) || sessionId < 1 || sessionId > 2_147_483_647) {
+    redirect('/login', RedirectType.replace);
   }
 
-  return {
-    success: true,
-    session: { ...sessionRows[0], title: sanitizeText(sessionRows[0].title).sanitized },
-    messages: await readChatHistory(sessionId),
-  };
+  const auth = await getAuthContext();
+  if (!auth) redirect('/login', RedirectType.replace);
+
+  try {
+    const [session] = await db.select().from(chatSessions)
+      .where(ownedSession(sessionId, auth)).limit(1);
+
+    if (!session) {
+      return { success: false, error: 'This conversation is unavailable.' };
+    }
+
+    return {
+      success: true,
+      session: { ...session, title: sanitizeText(session.title).sanitized },
+      messages: await readChatHistory(sessionId),
+    };
+  } catch (error) {
+    const { code } = readDatabaseFailure(error);
+    if (code === 'UNDEFINED_VALUE') redirect('/login', RedirectType.replace);
+    console.error('Unable to load the conversation', { code });
+    return { success: false, error: 'Unable to load this conversation.' };
+  }
 }
 
 /**

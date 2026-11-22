@@ -12,7 +12,7 @@ import { EvidenceInspector } from './EvidenceInspector';
 import { TicketDetailModal } from '@/features/incidents/ui/TicketDetailModal';
 import { submitEvaluation } from '@/features/chat/actions';
 import { readChatEvents } from '@/features/chat/stream-events';
-import type { ChatMessage, SourceItem } from '@/features/chat/types';
+import type { ChatMessage, ChatSessionSummary, SourceItem } from '@/features/chat/types';
 import { getIncidentByCode } from '@/features/incidents/actions';
 import type { IncidentRecord } from '@/features/incidents/incident-records';
 
@@ -25,7 +25,7 @@ interface Props {
   selectedModel: string;
   modelOptions: ChatModelOption[];
   onSelectModel: (model: string) => void;
-  onSessionUpdated?: (sessionId: number, newTitle: string) => void;
+  onSessionUpdated?: (session: ChatSessionSummary) => void;
   evidenceOpen: boolean;
   onCloseEvidence: () => void;
   onOpenEvidence: () => void;
@@ -178,7 +178,7 @@ export function ChatInterface({
           throw new Error(event.message);
         } else if (event.type === 'done') {
           finished = true;
-          if (activeSessionId && event.title) onSessionUpdated?.(activeSessionId, event.title);
+          if (!request.signal.aborted && event.session) onSessionUpdated?.(event.session);
           break;
         }
       }
