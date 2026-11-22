@@ -1,3 +1,4 @@
+import { isDemoMode } from '@/features/demo/config';
 import { getAuthContext } from '@/features/accounts/session';
 import { sanitizeText } from '@/features/privacy/redact';
 import { db } from '@/db';
@@ -14,6 +15,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  if (isDemoMode()) return children;
+
   const auth = await getAuthContext();
   if (!auth) {
     redirect('/login');

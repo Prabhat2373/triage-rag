@@ -85,3 +85,13 @@ For an existing database, apply `drizzle/add-github-incident-source.sql` with `p
 As a workspace admin, open **Integrations → GitHub Issues → Connect GitHub**. Enter the repository owner, repository name, and optionally one issue label. Public repositories require no credentials. For a private repository, create a GitHub fine-grained personal access token for the repository owner, choose only the target repository, and grant **Repository permissions → Issues → Read-only**. The connector uses the token in memory and does not save it. It needs no OAuth client secret or webhook secret.
 
 Choose **Save connection and preview**, then import. Each workspace can save one repository and label filter. Re-enter the token when opening setup for a private repository. The connector checks up to 30 recently updated closed issues per run, or you can enter an issue number to preview one thread directly without the label filter. It accepts issues with a **Resolution**, **Fix applied**, or **How it was fixed** section in the issue description, or a documented fix in the latest page of comments from the issue author or repository team. For issues explicitly closed as Completed, a concrete fix reported by another participant can also qualify. Comment wording such as “Fixed by rolling back the deployment” also works. Repeat imports update changed records and skip unchanged ones. Imported records retain the original GitHub issue link and are visible to members of the workspace. Imports are initiated manually.
+
+## Deploy a demo without a database
+
+Set `DEMO_MODE=true` in the Vercel project's environment variables, then deploy. To try it locally, run `DEMO_MODE=true npm run dev`.
+
+The home page opens a public chat with 56 fictional, read-only incidents. There is no sign-in, database migration, Ollama setup, or saved chat history. Visitors can browse and filter the sample knowledge base, read the plain-language RAG guide, open incident citations, and start a fresh chat. Workspace management and imports require the normal database-backed app.
+
+Without a Gemini key, chat returns matching sample resolutions directly. If you set `GOOGLE_GENERATIVE_AI_API_KEY`, Gemini generates responses for matching questions using the sample incidents, without embeddings. For a public demo that uses your Gemini quota, apply a gateway rate limit to `POST /api/chat`.
+
+Leave `DEMO_MODE` unset or set it to `false` for the normal app.

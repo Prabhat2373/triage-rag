@@ -1,0 +1,73 @@
+// Fictional incidents. Keep each entry focused on a symptom, an applied fix, and a verification step.
+type SampleIncident = readonly [title: string, symptom: string, resolution: string, searchAliases?: string];
+
+export const sampleIncidentGroups = {
+  Billing: [
+    ['Duplicate card charges after a retry', 'A payment timed out on mobile. Retrying created a second charge even though the first payment had succeeded.', 'Reused the same payment identifier for retries and reconciled the duplicates. A forced timeout followed by a retry produced one charge.', 'double charged duplicate payments'],
+    ['Refund status stayed pending', 'The payment processor confirmed a refund, but the account page still displayed Pending the next day.', 'Reprocessed missed refund events and added a daily status check. Refunded orders now display the processor’s confirmed status.'],
+    ['Renewal invoices used the old tax rate', 'Renewals for customers who moved still calculated tax from their previous billing address.', 'Recalculated tax using the current billing address at renewal. Test renewals across the affected regions showed the correct rate.'],
+    ['Discount disappeared after a plan change', 'An active annual discount was missing after a customer upgraded from the settings page.', 'Carried eligible discounts into the updated subscription. Upgrade previews and final invoices showed the same totals.'],
+    ['Invoices displayed the wrong currency symbol', 'PDF receipts showed dollars for amounts billed in euros. The amounts charged were correct.', 'Rendered the currency stored on the invoice. Test PDFs displayed the correct symbols for EUR, USD, and CAD.'],
+    ['Metered usage appeared twice on invoices', 'The same usage batch was processed twice after the import worker restarted.', 'Deduplicated usage events by their stable IDs and corrected affected draft invoices. Replaying the batch left totals unchanged.'],
+  ],
+  Infrastructure: [
+    ['Container ran out of memory during image resizing', 'Large images triggered restarts while thumbnails for normal uploads still generated.', 'Limited concurrent image jobs and resized images in smaller buffers. A stress test completed without memory-related restarts.', 'oom thumbnails'],
+    ['Disk filled with application logs', 'Writes started failing after a debug log grew overnight and used the remaining disk space.', 'Rotated and compressed logs and restored normal logging. Disk usage remained stable under a replay of peak traffic.'],
+    ['API hostname stopped resolving', 'Clients in one region received DNS errors after a domain record was changed.', 'Restored the previous DNS record and waited for caches to refresh. Regional probes confirmed the hostname resolved again.', 'dns nxdomain'],
+    ['Deployments waited indefinitely for health checks', 'New containers started, but the load balancer checked an endpoint that required sign-in.', 'Switched health checks to a dedicated readiness endpoint. New containers passed the check and received traffic.'],
+    ['Staging TLS certificate expired', 'Browsers refused to open staging after the certificate renewal job stopped running.', 'Renewed the certificate and repaired the renewal schedule. A browser and an external probe both verified the new expiry date.', 'ssl certificate expired'],
+    ['Background worker fell behind during a traffic spike', 'Jobs sat in the queue for 20 minutes while CPU on the web service stayed normal.', 'Scaled workers using queue depth and capped per-worker concurrency. The backlog cleared without raising error rates.', 'queue backlog'],
+  ],
+  Authentication: [
+    ['Password reset messages arrived late', 'Password reset links expired before users received them during peak traffic.', 'Moved reset messages to a priority queue and sent fresh links for pending requests. Delivery returned to under a minute.'],
+    ['Single sign-on failed after a certificate rotation', 'Employees received a signature error when signing in through the company identity provider.', 'Updated the trusted signing certificate and tested sign-in with two employee accounts.', 'sso saml invalid signature'],
+    ['New employees got the wrong workspace role', 'Employees invited as viewers appeared as members after their first sign-in.', 'Used the role stored on the invitation when creating memberships. Viewer and member invitations retained their intended permissions.'],
+    ['Invitation links expired on arrival', 'A link scanner opened invitations before recipients did, which consumed the single-use links.', 'Consumed invitations only after the recipient submitted the acceptance form. Opening or scanning the link no longer changed its state.'],
+    ['Passkey sign-in failed on a custom domain', 'The browser rejected saved passkeys after the workspace moved to a branded hostname.', 'Restored the supported sign-in hostname and redirected attempts from the branded domain. Existing passkeys worked again.', 'webauthn'],
+    ['Two-factor codes were rejected on one server', 'Valid one-time codes failed intermittently depending on which server handled sign-in.', 'Resynchronized the server clock. The same test account could sign in through every instance.', 'mfa otp 2fa'],
+  ],
+  Checkout: [
+    ['Shipping rates were missing for some addresses', 'Orders with apartment numbers showed no shipping options even though the postcode was supported.', 'Sent apartment details separately from the street address. The affected addresses returned carrier rates in checkout.'],
+    ['Cart totals changed after applying a coupon', 'A discount was shown in the cart, then removed when checkout recomputed item totals.', 'Used a shared pricing calculation for cart and checkout. Orders with mixed eligible items kept the displayed discount.'],
+    ['Orders were duplicated when confirmation was slow', 'Clicking Place order twice after a slow response created two order records.', 'Used a stable checkout request ID and returned the existing order for repeats. Concurrent submissions created one order.'],
+    ['Guests lost their cart after signing in', 'Items selected before sign-in disappeared when an existing account had an empty cart.', 'Merged the guest cart into the account cart. Test sign-ins preserved items and respected stock limits.'],
+    ['Pickup slots appeared after the cutoff', 'Customers could select pickup times that the store could no longer prepare.', 'Evaluated order cutoffs in the store’s timezone. Tests around closing time and daylight saving showed valid slots only.'],
+    ['Digital orders waited for shipment confirmation', 'Customers who purchased downloads saw their order stuck on Awaiting shipment.', 'Marked digital-only orders complete once delivery links were issued. Mixed orders still waited for physical shipping.'],
+  ],
+  Search: [
+    ['Search showed products that were out of stock', 'Items remained searchable as available after the last unit was sold.', 'Sent stock changes to the search index and refreshed affected products. Search removed unavailable items within the expected update window.'],
+    ['Search returned no results for accented names', 'Names such as Café were searchable with accents only, even when the rest of the text matched.', 'Normalized accents in indexed names and queries. Searches with and without accents returned the same records.'],
+    ['New help articles were missing from search', 'Published articles were visible by link but did not appear in help center results.', 'Requeued failed indexing jobs and added an alert for delays. Newly published articles appeared in the index within five minutes.'],
+    ['Filters showed counts from an earlier search', 'Changing the query updated the results while category counts stayed tied to the old query.', 'Included the query text in the filter cache key. Counts matched the visible results during repeated searches.'],
+    ['Search results repeated across pages', 'Moving to page two repeated several items from page one when results shared the same ranking.', 'Added the record ID as a stable secondary sort. Pagination tests showed each result exactly once.'],
+    ['Archived products appeared in autocomplete', 'Typing a product name suggested items hidden from the storefront.', 'Applied visibility rules before returning autocomplete suggestions and refreshed the suggestion index. Archived items disappeared.'],
+    ['Search synonyms hid exact matches', 'Searching for a specific part number ranked broad synonym matches above the requested product.', 'Gave exact identifiers priority over synonyms. The requested part appeared first in the affected searches.'],
+  ],
+  Reporting: [
+    ['Revenue dashboard showed yesterday’s totals after midnight', 'The daily revenue chart stayed on yesterday even though new orders appeared in the order list.', 'Grouped sales by the workspace timezone and refreshed the daily cache at local midnight. The day boundary matched the order list.'],
+    ['CSV export split rows with multiline notes', 'Opening a report in a spreadsheet put note text on separate rows and shifted columns.', 'Quoted fields using a CSV writer. Notes containing newlines, commas, and quotes loaded as single cells.'],
+    ['Scheduled reports stopped after a timezone change', 'Weekly reports stopped arriving after an administrator changed the workspace timezone.', 'Rebuilt schedules from the updated timezone. The next scheduled report arrived at the expected local time.'],
+    ['Conversion report counted returning visitors twice', 'The dashboard counted two visits with the same session ID after events were retried.', 'Deduplicated events before aggregation and rebuilt affected summaries. Replaying the events left conversion counts unchanged.'],
+    ['Dashboard filters omitted the final day', 'A date range ending Friday left out nearly all of Friday’s activity.', 'Used the start of Saturday as the exclusive end boundary. The report included all Friday activity and excluded Saturday.'],
+    ['Download links expired before a report finished', 'Large reports completed, but their links had already expired when users opened them.', 'Started link expiry when a file became available. A slow report could be downloaded immediately after completion.'],
+    ['Totals differed between the chart and the table', 'The chart rounded each transaction first, while the table rounded the final sum.', 'Calculated totals in minor currency units and rounded only for display. The chart and table reconciled for the same range.'],
+  ],
+  Integrations: [
+    ['Webhook requests returned 401 after a parser change', 'The webhook signature check failed for valid events after JSON parsing was moved earlier.', 'Verified signatures against the raw request body before parsing. Signed test events were accepted and invalid signatures were rejected.', 'webhook signature hmac'],
+    ['CRM contacts stopped syncing after a token expired', 'New contacts stayed queued while the connection screen still showed Connected.', 'Refreshed the connection and marked expired credentials as needing attention. Pending contacts synchronized successfully.'],
+    ['Replayed webhooks triggered duplicate notifications', 'Resending an event after a temporary failure delivered the same notification twice.', 'Tracked processed event IDs before sending notifications. Replaying a batch delivered one notification per event.'],
+    ['External inventory updates arrived out of order', 'An older update overwrote a newer stock count when requests were delivered out of order.', 'Compared the provider’s update version before writing stock counts. A replay in reverse order kept the newest value.'],
+    ['Support tickets lost custom fields during import', 'Imported tickets were present but their priority and account flags were empty.', 'Mapped custom fields using the provider’s field IDs. A comparison with the source records confirmed the expected values.'],
+    ['A calendar sync created duplicate meetings', 'Editing a title created a second calendar event for the same meeting.', 'Tracked the remote event ID across edits. Updating a meeting changed the existing event.'],
+    ['Sync stopped when a provider throttled requests', 'A large import stalled after the provider returned HTTP 429.', 'Respected the retry delay and resumed from the last completed page. The import finished without duplicated records.', 'rate limit 429'],
+  ],
+  'Customer support': [
+    ['Reopened support tickets stayed out of the queue', 'A customer reply reopened a resolved ticket, but agents could not see it in their active queue.', 'Updated the queue index when a ticket reopened. A reply returned the ticket to the correct queue.'],
+    ['Saved replies used the previous customer’s name', 'Reusing a reply template after switching tickets left the previous customer’s first name in the draft.', 'Resolved placeholders from the current ticket when inserting the template. Tests across multiple tickets used the correct names.'],
+    ['Support notifications went to an old assignee', 'After a handoff, the previous agent kept getting updates while the new assignee received none.', 'Loaded the current assignee before dispatch and discarded stale pending recipients. Subsequent updates reached the new agent.'],
+    ['Article links opened the wrong language', 'Links shared from translated help articles opened the default language for recipients.', 'Included the article locale in shared links. A fresh browser opened the requested language.'],
+    ['Chat handoff dropped the conversation summary', 'When a support chat moved from self-service to an agent, the agent received an empty summary.', 'Persisted the summary before creating the handoff and retried failed transfers. Agents could read the summary on arrival.'],
+    ['Business-hour rules marked tickets overdue overnight', 'Tickets received after closing time were flagged overdue before agents started work.', 'Counted service time only inside the configured schedule. Overnight and weekend cases showed the expected due dates.', 'sla overdue'],
+    ['Support attachments could not be downloaded', 'Agents could view a ticket but downloaded files returned an expired-link error.', 'Issued a fresh download link when an authorized agent opened the file. Both new and older attachments downloaded successfully.'],
+  ],
+} satisfies Record<string, readonly SampleIncident[]>;

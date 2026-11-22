@@ -18,7 +18,7 @@ interface Props {
   isLast: boolean;
   onCitationClick: (code: string) => void;
   onOpenEvidence: () => void;
-  onFeedback: SaveRating;
+  onFeedback?: SaveRating;
 }
 
 export function MessageItem({

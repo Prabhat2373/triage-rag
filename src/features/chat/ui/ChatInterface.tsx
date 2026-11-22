@@ -17,6 +17,7 @@ import { getIncidentByCode } from '@/features/incidents/actions';
 import type { IncidentRecord } from '@/features/incidents/incident-records';
 
 interface Props {
+  demoIncidents?: IncidentRecord[];
   incidentSuggestions: IncidentSuggestionState;
   initialChatMessages: ChatMessage[];
   activeSessionId: number | null;
@@ -27,10 +28,11 @@ interface Props {
   evidenceOpen: boolean;
   onCloseEvidence: () => void;
   onOpenEvidence: () => void;
-  onSetEvidenceCount: (count: number) => void;
+  onSetEvidenceCount?: (count: number) => void;
 }
 
 export function ChatInterface({
+  demoIncidents,
   incidentSuggestions,
   initialChatMessages,
   activeSessionId,
@@ -74,7 +76,7 @@ export function ChatInterface({
 
   useEffect(() => () => activeRequest.current?.abort(), []);
   useEffect(() => {
-    onSetEvidenceCount(retrievedSources.length);
+    onSetEvidenceCount?.(retrievedSources.length);
   }, [onSetEvidenceCount, retrievedSources.length]);
 
   useLayoutEffect(() => {
@@ -89,7 +91,10 @@ export function ChatInterface({
     const requestId = ++citationRequest.current;
     setCitationError('');
     try {
-      const incident = await getIncidentByCode(ticketCode.replace(/^\[|\]$/g, '').trim());
+      const code = ticketCode.replace(/^\[|\]$/g, '').trim();
+      const incident = demoIncidents
+        ? demoIncidents.find(({ ticketCode }) => ticketCode === code)
+        : await getIncidentByCode(code);
       if (requestId !== citationRequest.current) return;
       if (!incident) throw new Error('Incident unavailable');
       setInspectedTicket(incident);
@@ -198,7 +203,7 @@ export function ChatInterface({
         <div ref={transcriptRef} onScroll={trackScroll} aria-label="Conversation" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
           <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col">
             {messages.length === 0 ? (
-              <ChatWelcome {...incidentSuggestions} onPrompt={handleSendMessage} />
+              <ChatWelcome sample={Boolean(demoIncidents)} {...incidentSuggestions} onPrompt={handleSendMessage} />
             ) : (
               <div className="space-y-7 py-3 sm:py-5">
                 {messages.map((m, idx) => (
@@ -215,7 +220,7 @@ export function ChatInterface({
                       if (m.sources?.length) setRetrievedSources(m.sources);
                       onOpenEvidence();
                     }}
-                    onFeedback={handleFeedback}
+                    onFeedback={demoIncidents ? undefined : handleFeedback}
                   />
                 ))}
               </div>

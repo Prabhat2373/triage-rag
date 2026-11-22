@@ -1,3 +1,4 @@
+import { isDemoMode } from '@/features/demo/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
@@ -50,6 +51,7 @@ export async function startSession(account: number | ((transaction: DatabaseTran
 }
 
 export async function endSession() {
+  if (isDemoMode()) return;
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (token) {
@@ -59,6 +61,7 @@ export async function endSession() {
 }
 
 export async function getAuthContext(): Promise<AuthContext | null> {
+  if (isDemoMode()) return null;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
 

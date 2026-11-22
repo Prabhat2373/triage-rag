@@ -6,7 +6,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
   DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DEFAULT_CHAT_MODEL, type ChatModelOption } from '../models/catalog';
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL, type ChatModelOption } from '../models/catalog';
 import { MAX_CHAT_QUERY_LENGTH } from '../types';
 
 interface Props {
@@ -59,7 +59,7 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
         />
 
         <div className="flex items-center justify-between gap-2 px-1 pt-1.5">
-          <DropdownMenu>
+          {model ? <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" disabled={isLoading} aria-label={`Choose AI model, currently ${model.name}`} className="flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-violet-50 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-60 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10">
                 <Cpu aria-hidden="true" className="size-4 text-violet-600 dark:text-violet-300" />
@@ -80,7 +80,7 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> : <span className="px-2 text-sm text-slate-600 dark:text-slate-300">{CHAT_MODELS.find(({ id }) => id === selectedModel)?.name ?? selectedModel}</span>}
 
           <span className="hidden text-xs text-slate-600 sm:inline dark:text-slate-300">
             <kbd className="font-sans font-medium">Enter</kbd> to send · <kbd className="font-sans font-medium">Shift + Enter</kbd> for a new line

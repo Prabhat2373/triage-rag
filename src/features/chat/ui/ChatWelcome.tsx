@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, AudioWaveform, BookOpen, FileText } from 'lucide-react';
 import type { IncidentSuggestionState } from '../retrieval/suggestions';
 
-export function ChatWelcome({ hasIncidents, suggestions, onPrompt }: IncidentSuggestionState & { onPrompt: (query: string) => void }) {
+export function ChatWelcome({ hasIncidents, suggestions, sample, onPrompt }: IncidentSuggestionState & { sample?: boolean; onPrompt: (query: string) => void }) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-6 sm:py-10">
       <div className="mb-8 text-center">
@@ -27,7 +27,7 @@ export function ChatWelcome({ hasIncidents, suggestions, onPrompt }: IncidentSug
 
       {suggestions.length > 0 && (
         <section aria-label="Suggested questions from recent incidents">
-          <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">From your recent incidents</p>
+          <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">{sample ? 'Try a sample incident' : 'From your recent incidents'}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {suggestions.map(({ id, title, category, query }) => (
               <button key={id} type="button" onClick={() => onPrompt(query)} className="group flex min-w-0 items-start gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 text-left shadow-[0_3px_10px_#28144908] transition hover:border-violet-300 hover:bg-violet-50/50 focus-visible:outline-2 focus-visible:outline-violet-500 sm:p-4 dark:border-white/12 dark:bg-[#24212e] dark:hover:border-violet-400/45 dark:hover:bg-[#2b253a]">

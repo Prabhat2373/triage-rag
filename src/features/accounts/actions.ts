@@ -1,5 +1,7 @@
 'use server';
 
+import { isDemoMode } from '@/features/demo/config';
+
 import { revalidatePath } from 'next/cache';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { db } from '@/db';
@@ -12,6 +14,7 @@ import { hashPassword, verifyPassword, isValidPassword } from './password';
 import { logAuditEvent } from '@/features/audit/log-event';
 
 export async function loginAction(email: string, password: string) {
+  if (isDemoMode()) return { success: false as const, error: 'Sign-in is disabled in demo mode.' };
   const invalidCredentials = { success: false as const, error: 'Invalid email or password.' };
   if (typeof email !== 'string' || email.length > 254 || !isValidPassword(password)) {
     return invalidCredentials;
@@ -66,6 +69,7 @@ export async function registerAction(data: {
   orgName: string;
   password: string;
 }) {
+  if (isDemoMode()) return { success: false as const, error: 'Registration is disabled in demo mode.' };
   if (!data || !isValidName(data.name) || !isValidName(data.orgName)
     || !isValidEmail(data.email) || !isValidPassword(data.password)) {
     return { success: false, error: 'Enter a name, organization, valid email, and a password of 12 to 128 characters.' };
@@ -142,6 +146,7 @@ export async function inviteTeamMember(data: { name: string; email: string; role
   const auth = await getAuthContext();
   if (!auth?.canManageMembers) return { success: false, error: 'Only administrators can invite team members.' };
 
+  if (isDemoMode()) return { success: false as const, error: 'Registration is disabled in demo mode.' };
   if (!data || !isValidName(data.name) || !isValidEmail(data.email) || !['admin', 'member'].includes(data.role)) {
     return { success: false, error: 'Enter a name, valid email, and role.' };
   }
@@ -183,6 +188,7 @@ export async function inviteTeamMember(data: { name: string; email: string; role
 }
 
 export async function acceptInvitation(email: string, code: string, password: string) {
+  if (isDemoMode()) return { success: false as const, error: 'Invitations are disabled in demo mode.' };
   const invalid = { success: false, error: 'The invitation is invalid or has expired.' };
   if (!isValidEmail(email) || typeof code !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(code)
     || !isValidPassword(password)) return invalid;

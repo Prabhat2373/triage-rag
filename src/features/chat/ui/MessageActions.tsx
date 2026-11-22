@@ -34,7 +34,7 @@ async function copyText(text: string) {
 
 export function MessageActions({ message, onFeedback, onOpenEvidence }: {
   message: ChatMessage;
-  onFeedback: SaveRating;
+  onFeedback?: SaveRating;
   onOpenEvidence: () => void;
 }) {
   const [copyStatus, setCopyStatus] = useState<'copied' | 'failed'>();
@@ -54,7 +54,7 @@ export function MessageActions({ message, onFeedback, onOpenEvidence }: {
   }
 
   async function handleVote(rating: Rating) {
-    if (saving.current || savedVote?.rating === rating) return;
+    if (!onFeedback || saving.current || savedVote?.rating === rating) return;
     saving.current = true;
     setPendingVote(rating);
     setVoteError(false);
@@ -84,6 +84,7 @@ export function MessageActions({ message, onFeedback, onOpenEvidence }: {
           { rating: 'helpful', label: 'Like', selectedLabel: 'Liked', icon: ThumbsUp },
           { rating: 'unhelpful', label: 'Dislike', selectedLabel: 'Disliked', icon: ThumbsDown },
         ] as const).map(({ rating, label, selectedLabel, icon: Icon }) => {
+          if (!onFeedback) return null;
           const pressed = savedVote?.rating === rating;
           return (
             <button key={rating} type="button" aria-label={label} title={label} aria-pressed={pressed}
