@@ -18,6 +18,7 @@ import type { IncidentRecord } from '@/features/incidents/incident-records';
 
 interface Props {
   demoIncidents?: IncidentRecord[];
+  chatEndpoint?: string;
   incidentSuggestions: IncidentSuggestionState;
   initialChatMessages: ChatMessage[];
   activeSessionId: number | null;
@@ -33,6 +34,7 @@ interface Props {
 
 export function ChatInterface({
   demoIncidents,
+  chatEndpoint = '/api/chat',
   incidentSuggestions,
   initialChatMessages,
   activeSessionId,
@@ -142,7 +144,7 @@ export function ChatInterface({
     activeRequest.current = request;
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: textToSend, model: selectedModel, sessionId: activeSessionId, previousQuestion: activeSessionId == null ? previousQuestion : undefined }),

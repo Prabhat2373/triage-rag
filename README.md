@@ -88,10 +88,12 @@ Choose **Save connection and preview**, then import. Each workspace can save one
 
 ## Deploy a demo without a database
 
-Set `DEMO_MODE=true` in the Vercel project's environment variables, then deploy. To try it locally, run `DEMO_MODE=true npm run dev`.
+On a regular deployment, visitors can choose **Explore demo** on the sign-in page or open `/demo` directly. This public route can run alongside the regular workspace and uses only bundled samples.
 
-The home page opens a public chat with 56 fictional, read-only incidents. There is no sign-in, database migration, Ollama setup, or saved chat history. Visitors can browse and filter the sample knowledge base, read the plain-language RAG guide, open incident citations, and start a fresh chat. Workspace management and imports require the normal database-backed app.
+To make the home page open the demo for everyone, set `DEMO_MODE=true` in Vercel and deploy. To try that setup locally, run `DEMO_MODE=true npm run dev`.
 
-Set `GOOGLE_GENERATIVE_AI_API_KEY` to enable chat. Gemini generates every demo chat reply and uses relevant sample incidents when available. The demo searches the sample records by text. The sample knowledge base and guide remain available without a key. For a public demo that uses your Gemini quota, apply a gateway rate limit to `POST /api/chat`.
+The demo offers a public chat with 56 fictional, read-only incidents. There is no sign-in, database migration, Ollama setup, or saved chat history. Visitors can browse and filter the sample knowledge base, read the plain-language RAG guide, open incident citations, and start a fresh chat. Workspace management and imports require the normal database-backed app.
+
+Set `GOOGLE_GENERATIVE_AI_API_KEY` to enable chat. Gemini generates every demo chat reply and uses relevant sample incidents when available. The demo searches the sample records by text. The sample knowledge base and guide remain available without a key. For a public demo that uses your Gemini quota, apply a gateway rate limit to `POST /api/demo/chat`. In demo-only deployments, apply the same limit to the existing `POST /api/chat` demo endpoint.
 
 Leave `DEMO_MODE` unset or set it to `false` for the normal app.

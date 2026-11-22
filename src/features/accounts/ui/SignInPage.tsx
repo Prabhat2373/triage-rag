@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, MailPlus } from 'lucide-react';
+import { ArrowUpRight, MailPlus, Sparkles } from 'lucide-react';
 import { AccountForm } from './AccountForm';
 import { AccountLayout } from './AccountLayout';
 
@@ -48,6 +48,14 @@ export default function SignInPage() {
             <ArrowUpRight aria-hidden="true" className="size-3.5" />
           </Link>
         </div>
+
+        {isSigningIn && (
+          <Link href="/demo" className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-50 px-3 text-sm font-semibold text-violet-800 hover:bg-violet-100 focus-visible:outline-2 focus-visible:outline-violet-500 dark:bg-violet-400/10 dark:text-violet-200 dark:hover:bg-violet-400/20">
+            <Sparkles aria-hidden="true" className="size-4" />
+            Explore demo
+            <ArrowUpRight aria-hidden="true" className="size-3.5" />
+          </Link>
+        )}
       </div>
     </AccountLayout>
   );
