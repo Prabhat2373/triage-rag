@@ -5,7 +5,7 @@ const steps = [
 ];
 
 const dataPaths = [
-  ['Public demo without Gemini', 'The app searches bundled fictional records and displays their matching resolutions. No model receives your question.'],
+  ['Public demo', 'The app searches bundled fictional records and uses Gemini to generate each reply. The knowledge base and guide can still be browsed when chat is unavailable.'],
   ['Gemini chat', 'TriageRAG sends the redacted question, relevant follow-up context, and matching records to the Gemini API. Google handles the request under the applicable API terms.'],
   ['Local Ollama in a regular workspace', 'The app sends the question and matching records to the configured Ollama runtime. When Ollama is self-hosted, model processing happens on that host.'],
   ['Optional Gemini semantic search in a regular workspace', 'If a workspace enables Gemini semantic indexing, TriageRAG sends redacted questions and incident text to Google’s embedding API. It stores the incident vectors in PostgreSQL. Otherwise, Gemini chat searches incident text in PostgreSQL.'],
@@ -54,7 +54,6 @@ export function DemoGuide({ onOpenChat }: { onOpenChat: () => void }) {
               <li key={title}><strong className="text-slate-950 dark:text-white">{title}.</strong> {description}</li>
             ))}
           </ol>
-          <p className="mt-3 text-slate-600 dark:text-slate-300">Without Gemini, this demo shows the matching resolutions directly. You can still try the search and open its citations.</p>
         </section>
 
         <section aria-labelledby="vector-title">

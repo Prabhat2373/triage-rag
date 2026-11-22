@@ -50,7 +50,8 @@ export const demoIncidents: IncidentRecord[] = samples.map(({ title, category, s
   symptom,
   resolution,
   sourceUrl: null,
-  createdAt: new Date('2026-01-01T00:00:00Z'),
+  // Fixed fictional dates, with the featured records first in the sample timeline.
+  createdAt: new Date(Date.UTC(2026, 0, 56 - index)),
 }));
 
 const commonWords = new Set('a an and are after about can could did do does during error failed failure for from had has have how i in is it my not of on our returned stopped the their this to was we were what when why with worked working you'.split(' '));
@@ -65,6 +66,23 @@ const searchIndex = samples.map(({ title, symptom, aliases }) => ({
   primary: searchTerms(`${title} ${aliases}`),
   secondary: searchTerms(symptom),
 }));
+
+export function listRecentDemoEvidence(query: string) {
+  const requestedCount = query.match(/\b(?:latest|recent|last|newest|most recent) +([1-9]\d*) +/i)
+    ?? query.match(/\b([1-9]\d*) +(?:latest|recent|newest|most recent) +/i);
+  const recentIncidents = /\b(?:recent|latest|last|newest)\s+(?:[1-9]\d*\s+)?(?:resolved\s+)?incidents\b/i;
+  if (!recentIncidents.test(query) || /\bTKT-\d+\b/i.test(query)) return undefined;
+
+  const limit = Math.min(Number(requestedCount?.[1] ?? 5), 10);
+  return [...demoIncidents]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, limit)
+    .map(({ ticketCode, title, category, symptom, resolution, createdAt }) => ({
+      ticketCode, title, category, symptom, resolution,
+      similarity: 0,
+      sampleDate: createdAt.toISOString().slice(0, 10),
+    }));
+}
 
 export function findDemoEvidence(query: string) {
   const requestedCodes = new Set(query.toUpperCase().match(/\bTKT-\d+\b/g));

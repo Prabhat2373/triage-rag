@@ -6,6 +6,7 @@ export interface SourceItem {
   resolution: string;
   similarity: number;
   matchKind?: 'keyword';
+  sampleDate?: string;
 }
 
 export interface ChatMessage {

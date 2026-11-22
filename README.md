@@ -92,6 +92,6 @@ Set `DEMO_MODE=true` in the Vercel project's environment variables, then deploy.
 
 The home page opens a public chat with 56 fictional, read-only incidents. There is no sign-in, database migration, Ollama setup, or saved chat history. Visitors can browse and filter the sample knowledge base, read the plain-language RAG guide, open incident citations, and start a fresh chat. Workspace management and imports require the normal database-backed app.
 
-Without a Gemini key, chat returns matching sample resolutions directly. If you set `GOOGLE_GENERATIVE_AI_API_KEY`, Gemini generates responses for matching questions using the sample incidents, without embeddings. For a public demo that uses your Gemini quota, apply a gateway rate limit to `POST /api/chat`.
+Set `GOOGLE_GENERATIVE_AI_API_KEY` to enable chat. Gemini generates every demo chat reply and uses relevant sample incidents when available. The demo searches the sample records by text. The sample knowledge base and guide remain available without a key. For a public demo that uses your Gemini quota, apply a gateway rate limit to `POST /api/chat`.
 
 Leave `DEMO_MODE` unset or set it to `false` for the normal app.

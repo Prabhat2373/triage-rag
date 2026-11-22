@@ -39,7 +39,7 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
           event.preventDefault();
           if (!isLoading && input.trim()) onSubmit();
         }}
-        className="mx-auto w-full max-w-3xl rounded-[24px] border border-slate-200 bg-white p-2.5 shadow-[0_10px_35px_-14px_#35226950] transition focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-500/15 dark:border-white/12 dark:bg-[#23202c] dark:shadow-black/30 sm:p-3"
+        className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_8px_24px_-14px_#1e293b55] transition focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-500/15 dark:border-white/12 dark:bg-[#23202c] dark:shadow-black/30 sm:p-2.5"
       >
         <textarea
           ref={textareaRef}
@@ -48,8 +48,8 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
           aria-label="Describe an incident"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Describe the incident you’re investigating…"
-          className="block min-h-12 w-full resize-none bg-transparent px-2.5 py-2.5 text-base leading-6 sm:text-sm text-slate-900 outline-none placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400"
+          placeholder="Ask about an incident…"
+          className="block min-h-12 w-full resize-none bg-transparent px-2.5 py-2.5 text-base leading-6 sm:text-[15px] text-slate-900 outline-none placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400"
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
@@ -58,7 +58,7 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
           }}
         />
 
-        <div className="flex items-center justify-between gap-2 px-1 pt-1.5">
+        <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-1 pt-2 dark:border-white/8">
           {model ? <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" disabled={isLoading} aria-label={`Choose AI model, currently ${model.name}`} className="flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-violet-50 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-60 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10">
@@ -80,17 +80,17 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
-          </DropdownMenu> : <span className="px-2 text-sm text-slate-600 dark:text-slate-300">{CHAT_MODELS.find(({ id }) => id === selectedModel)?.name ?? selectedModel}</span>}
+          </DropdownMenu> : <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:bg-white/8 dark:text-slate-200"><Cpu aria-hidden="true" className="size-3.5 shrink-0 text-violet-700 dark:text-violet-300" />{CHAT_MODELS.find(({ id }) => id === selectedModel)?.name ?? selectedModel}</span>}
 
           <span className="hidden text-xs text-slate-600 sm:inline dark:text-slate-300">
             <kbd className="font-sans font-medium">Enter</kbd> to send · <kbd className="font-sans font-medium">Shift + Enter</kbd> for a new line
           </span>
           {isLoading ? (
-            <button type="button" onClick={onStop} aria-label="Stop response" className="grid size-11 shrink-0 place-items-center rounded-full bg-violet-700 text-white hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500">
+            <button type="button" onClick={onStop} aria-label="Stop response" className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-700 text-white hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500">
               <Square aria-hidden="true" className="size-3.5 fill-current" />
             </button>
           ) : (
-            <button type="submit" disabled={!input.trim()} aria-label="Send message" className="grid size-11 shrink-0 place-items-center rounded-full bg-violet-700 text-white shadow-sm hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-white/10 dark:disabled:text-slate-400">
+            <button type="submit" disabled={!input.trim()} aria-label="Send message" className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-700 text-white shadow-sm hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-white/10 dark:disabled:text-slate-400">
               <ArrowUp aria-hidden="true" className="size-5" />
             </button>
           )}

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { ArrowDown } from 'lucide-react';
 import type { ChatModelOption } from '../models/catalog';
-import { replyToGreeting } from '../conversation/context';
+import { isConversationalFollowUp, replyToGreeting } from '../conversation/context';
 import type { IncidentSuggestionState } from '../retrieval/suggestions';
 import { ChatWelcome } from './ChatWelcome';
 import { MessageItem, type DisplayMessage } from './MessageItem';
@@ -119,7 +119,11 @@ export function ChatInterface({
     if (!textToSend.trim() || activeRequest.current) return;
 
     const recentMessages = retryUserId ? messages.slice(0, -2) : messages;
-    const previousQuestion = recentMessages.findLast((message) => message.role === 'user' && !replyToGreeting(message.content))?.content.slice(0, 1800);
+    const previousQuestion = recentMessages.findLast((message, index) =>
+      message.role === 'user' && (demoIncidents
+        ? !isConversationalFollowUp(message.content) && Boolean(recentMessages[index + 1]?.sources?.length)
+        : !replyToGreeting(message.content))
+    )?.content.slice(0, 1800);
 
     const turn = ++requestNumber.current;
     const userMsgId = retryUserId ?? `pending-user-${turn}`;
@@ -199,13 +203,13 @@ export function ChatInterface({
 
   return (
     <div className="relative flex min-w-0 flex-1 overflow-hidden">
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(ellipse_at_top,#ede6fb_0%,transparent_57%)] dark:bg-[radial-gradient(ellipse_at_top,#342745_0%,transparent_57%)]">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-[#f8f9fc] dark:bg-[#1b1924]">
         <div ref={transcriptRef} onScroll={trackScroll} aria-label="Conversation" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
           <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col">
             {messages.length === 0 ? (
               <ChatWelcome sample={Boolean(demoIncidents)} {...incidentSuggestions} onPrompt={handleSendMessage} />
             ) : (
-              <div className="space-y-7 py-3 sm:py-5">
+              <div className="space-y-8 py-3 sm:py-6">
                 {messages.map((m, idx) => (
                   <MessageItem
                     key={m.id || idx}

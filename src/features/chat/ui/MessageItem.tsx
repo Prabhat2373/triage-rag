@@ -35,7 +35,7 @@ export function MessageItem({
   if (!isAssistant) {
     return (
       <div className="w-full flex justify-end">
-        <div className="max-w-[90%] whitespace-pre-wrap break-words rounded-[22px] rounded-br-md border border-violet-100 bg-violet-50 px-4 py-3 text-sm leading-6 text-slate-950 dark:border-violet-400/15 dark:bg-[#302640] dark:text-white">
+        <div className="max-w-[90%] sm:max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-violet-200/80 bg-violet-100/65 px-4 py-3 text-[15px] leading-6 text-slate-950 dark:border-violet-400/15 dark:bg-[#302640] dark:text-white">
           {message.content}
         </div>
       </div>
@@ -53,7 +53,7 @@ export function MessageItem({
 
       <div className="flex-1 min-w-0">
         {/* Model Badge */}
-        <div className="flex items-center gap-1.5 mb-1.5 text-xs text-slate-600 dark:text-slate-300">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
           <Sparkles className="h-3 w-3 text-indigo-500" />
           <span className="font-semibold text-slate-900 dark:text-white">TriageRAG</span>
           <span>· {CHAT_MODELS.find((model) => model.id === message.model)?.name ?? message.model}</span>

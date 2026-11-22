@@ -59,12 +59,12 @@ function parseCitations(child: React.ReactNode, onCitationClick: (code: string) 
 
 export function MarkdownRenderer({ content, onCitationClick }: Props) {
   return (
-    <div className="prose dark:prose-invert max-w-none break-words text-sm leading-6">
+    <div className="prose dark:prose-invert max-w-none break-words text-[15px] leading-7">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => (
-            <p className="mb-3 last:mb-0 leading-6 text-slate-800 dark:text-slate-200">
+            <p className="mb-4 last:mb-0 leading-7 text-slate-800 dark:text-slate-200">
               {parseCitations(children, onCitationClick)}
             </p>
           ),
@@ -84,7 +84,7 @@ export function MarkdownRenderer({ content, onCitationClick }: Props) {
             </ol>
           ),
           li: ({ children }) => (
-            <li className="leading-6 text-slate-800 dark:text-slate-200">
+            <li className="leading-7 text-slate-800 dark:text-slate-200">
               {parseCitations(children, onCitationClick)}
             </li>
           ),
