@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Shield, Sparkles, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react';
+import { Shield, Sparkles, RotateCcw } from 'lucide-react';
+import { MessageActions, type SaveRating } from './MessageActions';
 import { ResponseProgress } from './ResponseProgress';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { CHAT_MODELS, type ChatMessage } from '@/features/chat/types';
+import { CHAT_MODELS } from '../models/catalog';
+import type { ChatMessage } from '../types';
 
 export type DisplayMessage = ChatMessage & {
   interruption?: { kind: 'stopped' } | { kind: 'error'; message: string };
@@ -17,7 +18,7 @@ interface Props {
   isLast: boolean;
   onCitationClick: (code: string) => void;
   onOpenEvidence: () => void;
-  onFeedback: (message: ChatMessage, rating: 'helpful' | 'unhelpful') => void;
+  onFeedback: SaveRating;
 }
 
 export function MessageItem({
@@ -29,14 +30,7 @@ export function MessageItem({
   onOpenEvidence,
   onFeedback,
 }: Props) {
-  const [copied, setCopied] = useState(false);
   const isAssistant = message.role === 'assistant';
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   if (!isAssistant) {
     return (
@@ -98,49 +92,8 @@ export function MessageItem({
             )}
           </div>
         )}
-        {!isStreaming && !interruption && message.sources?.length === 0 && (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Try adding the affected service, error message, or what changed before the issue started.</p>
-        )}
-
-        {/* Action Controls & Evidence Link */}
         {message.content && !isStreaming && !interruption && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 pt-2 text-slate-600 dark:text-slate-300">
-            <button
-              onClick={handleCopy}
-              className="grid size-9 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-violet-500 hover:text-slate-900 dark:hover:text-white rounded transition cursor-pointer"
-              aria-label={copied ? "Copied answer" : "Copy answer"}
-              title="Copy answer"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-
-            <button
-              onClick={() => onFeedback(message, 'helpful')}
-              className="grid size-9 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-violet-500 hover:text-emerald-500 rounded transition cursor-pointer"
-              aria-label="Helpful response"
-              title="Helpful"
-            >
-              <ThumbsUp className="h-3.5 w-3.5" />
-            </button>
-
-            <button
-              onClick={() => onFeedback(message, 'unhelpful')}
-              className="grid size-9 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-violet-500 hover:text-rose-500 rounded transition cursor-pointer"
-              aria-label="Unhelpful response"
-              title="Unhelpful"
-            >
-              <ThumbsDown className="h-3.5 w-3.5" />
-            </button>
-
-            {message.sources && message.sources.length > 0 && (
-              <button
-                onClick={onOpenEvidence}
-                className="min-h-9 rounded-lg px-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 focus-visible:outline-2 focus-visible:outline-violet-500 dark:text-violet-300 dark:hover:bg-violet-400/15"
-              >
-                View evidence ({message.sources.length})
-              </button>
-            )}
-          </div>
+          <MessageActions message={message} onFeedback={onFeedback} onOpenEvidence={onOpenEvidence} />
         )}
       </div>
     </div>

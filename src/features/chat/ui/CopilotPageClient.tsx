@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { IncidentSuggestionState } from '../incident-suggestions';
+import type { IncidentSuggestionState } from '../retrieval/suggestions';
 import { ChatInterface } from './ChatInterface';
 import { useDashboard } from '@/components/layout/DashboardContext';
 import { getSessionMessagesAction } from '@/features/chat/actions';
-import { isChatModel, type ChatMessage } from '@/features/chat/types';
+import { DEFAULT_CHAT_MODEL, isChatModel, type ChatModelOption } from '../models/catalog';
+import type { ChatMessage } from '../types';
 
 type LoadedHistory = {
   sessionId: number;
@@ -13,7 +14,7 @@ type LoadedHistory = {
   error?: string;
 };
 
-export function CopilotPageClient({ incidentSuggestions }: { incidentSuggestions: IncidentSuggestionState }) {
+export function CopilotPageClient({ incidentSuggestions, modelOptions }: { incidentSuggestions: IncidentSuggestionState; modelOptions: ChatModelOption[] }) {
   const {
     activeSessionId,
     selectedModel,
@@ -73,7 +74,8 @@ export function CopilotPageClient({ incidentSuggestions }: { incidentSuggestions
       incidentSuggestions={incidentSuggestions}
       initialChatMessages={sessionHistory?.messages ?? []}
       activeSessionId={activeSessionId}
-      selectedModel={selectedModel}
+      selectedModel={modelOptions.some(({ id, available }) => id === selectedModel && available) ? selectedModel : DEFAULT_CHAT_MODEL}
+      modelOptions={modelOptions}
       onSelectModel={setSelectedModel}
       onSessionUpdated={updateSessionTitle}
       evidenceOpen={evidenceOpen}

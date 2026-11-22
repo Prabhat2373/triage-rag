@@ -1,94 +1,47 @@
 'use client';
 
-import React from 'react';
-import { X, CheckCircle2, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, Copy, ExternalLink } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 import type { IncidentRecord } from '../incident-records';
 
-interface Props {
-  ticket: IncidentRecord | null;
-  onClose: () => void;
+export function TicketDetailModal({ ticket, onClose }: { ticket: IncidentRecord | null; onClose: () => void }) {
+  return ticket ? <IncidentDetails key={ticket.id} ticket={ticket} onClose={onClose} /> : null;
 }
 
-export function TicketDetailModal({ ticket, onClose }: Props) {
-  const [copied, setCopied] = React.useState(false);
+function IncidentDetails({ ticket, onClose }: { ticket: IncidentRecord; onClose: () => void }) {
+  const [copyStatus, setCopyStatus] = useState('');
+  const hasGitHubSource = ticket.sourceUrl && /^https:\/\/github\.com\/[a-z0-9-]+\/[a-z0-9_.-]+\/issues\/\d+$/i.test(ticket.sourceUrl);
 
-  if (!ticket) return null;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(`${ticket.title}\n\nWhat happened:\n${ticket.symptom}\n\nHow it was fixed:\n${ticket.resolution}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  async function copyDetails() {
+    try {
+      await navigator.clipboard.writeText(`${ticket.title}\n\nWhat happened\n${ticket.symptom}\n\nHow it was fixed\n${ticket.resolution}`);
+      setCopyStatus('Incident details copied.');
+    } catch {
+      setCopyStatus('Couldn’t copy. You can select the text and copy it manually.');
+    }
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-white/10 max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="flex items-center gap-3 mb-4">
-          <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
-            {ticket.ticketCode}
-          </span>
-          <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-medium">
-            {ticket.category}
-          </span>
-        </div>
-
-        {ticket.sourceUrl && /^https:\/\/github\.com\/[a-z0-9-]+\/[a-z0-9_.-]+\/issues\/\d+$/i.test(ticket.sourceUrl) && (
-          <a href={ticket.sourceUrl} target="_blank" rel="noreferrer" className="mb-3 w-fit text-sm font-medium text-violet-700 underline dark:text-violet-300">Open original GitHub issue</a>
-        )}
-
-        <h3 className="font-bold text-base text-slate-900 dark:text-white mb-4 pr-8">
-          {ticket.title}
-        </h3>
-
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-              What happened
-            </span>
-            <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-mono">
-              {ticket.symptom}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/30">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>How it was fixed</span>
-            </div>
-            <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
-              {ticket.resolution}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100 dark:border-white/5">
-          <span className="text-[11px] text-slate-400 font-mono">
-            Indexed into HNSW pgvector
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopy}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition cursor-pointer"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied' : 'Copy incident details'}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xs transition"
-            >
-              Done
-            </button>
-          </div>
-        </div>
+    <Modal title={ticket.title} description={`${ticket.ticketCode} · ${ticket.category}`} onClose={onClose}
+      footer={<>
+        {copyStatus && <p role="status" className="mr-auto text-sm">{copyStatus}</p>}
+        <button type="button" onClick={copyDetails} className="ui-button"><Copy aria-hidden="true" className="size-4" /> Copy details</button>
+        <button type="button" onClick={onClose} className="ui-button ui-button-primary">Done</button>
+      </>}>
+      <div className="space-y-4">
+        {hasGitHubSource && <a href={ticket.sourceUrl ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 underline dark:text-violet-300">
+          Open original GitHub issue <ExternalLink aria-hidden="true" className="size-3.5" />
+        </a>}
+        <section className="rounded-xl border border-[var(--ui-line)] bg-[var(--ui-subtle)] p-4">
+          <h3 className="mb-2 font-semibold">What happened</h3>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{ticket.symptom}</p>
+        </section>
+        <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/8">
+          <h3 className="mb-2 flex items-center gap-2 font-semibold"><CheckCircle2 aria-hidden="true" className="size-4 text-emerald-700 dark:text-emerald-300" /> How it was fixed</h3>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{ticket.resolution}</p>
+        </section>
       </div>
-    </div>
+    </Modal>
   );
 }

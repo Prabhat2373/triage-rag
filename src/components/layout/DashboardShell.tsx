@@ -7,7 +7,7 @@ import { AppHeader } from './AppHeader';
 import { IngestIncidentModal } from '@/features/incidents/ui/IngestIncidentModal';
 import { useTheme } from '@/hooks/useTheme';
 import { useDashboard } from './DashboardContext';
-import { isChatModel } from '@/features/chat/types';
+import { isChatModel } from '@/features/chat/models/catalog';
 import { createChatSessionAction } from '@/features/chat/actions';
 
 const pageTitles: Record<string, string> = {

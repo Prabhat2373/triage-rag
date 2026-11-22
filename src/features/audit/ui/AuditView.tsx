@@ -14,13 +14,15 @@ export function AuditView({ auth, auditLogs }: Props) {
   const [filterAction, setFilterAction] = useState('ALL');
   const [search, setSearch] = useState('');
 
-  const actions = ['ALL', 'CHAT_QUERY', 'PII_SCRUBBED', 'TICKET_INGEST', 'INTEGRATION_UPDATE', 'MEMBER_INVITED'];
+  const actions = [...new Set(auditLogs.map(({ action }) => action))].sort();
+  const labels: Record<string, string> = { CHAT_QUERY: 'Chat query', PII_SCRUBBED: 'Sensitive data redacted', TICKET_INGEST: 'Incidents added', TICKET_DELETE: 'Incident deleted', INTEGRATION_UPDATE: 'Integration updated', MEMBER_INVITED: 'Member invited', USER_LOGIN: 'Signed in', ROLE_CHANGED: 'Role changed', PASSWORD_CHANGED: 'Password changed' };
+  const labelFor = (action: string) => labels[action] ?? action.toLowerCase().replaceAll('_', ' ');
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesAction = filterAction === 'ALL' || log.action === filterAction;
     const matchesSearch =
       log.userName.toLowerCase().includes(search.toLowerCase()) ||
-      log.action.toLowerCase().includes(search.toLowerCase()) ||
+      labelFor(log.action).toLowerCase().includes(search.toLowerCase()) ||
       log.details.toLowerCase().includes(search.toLowerCase());
     return matchesAction && matchesSearch;
   });
@@ -33,15 +35,16 @@ export function AuditView({ auth, auditLogs }: Props) {
           <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Workspace activity</h1>
         </div>
         <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Activity log of all queries, automated PII scrubbing, and admin actions in {auth.org.name}
+          Review copilot activity, redaction events, and administrative changes in {auth.org.name}.
         </p>
       </div>
 
       <div className="p-4 border-b border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#1a1a1a]/50">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+        <div className="relative flex-1 min-w-0 max-w-md">
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
-            type="text"
+            type="search"
+            aria-label="Search workspace activity"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by engineer, action, details..."
@@ -49,26 +52,18 @@ export function AuditView({ auth, auditLogs }: Props) {
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {actions.map((act) => (
-            <button
-              key={act}
-              onClick={() => setFilterAction(act)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium font-mono transition cursor-pointer ${
-                filterAction === act
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                  : 'bg-white dark:bg-[#282828] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
-              }`}
-            >
-              {act}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Filter activity by event" className="ui-field w-auto max-w-full" value={filterAction} onChange={(event) => setFilterAction(event.target.value)}>
+            <option value="ALL">All events</option>
+            {actions.map((action) => <option key={action} value={action}>{labelFor(action)}</option>)}
+          </select>
+          {(search || filterAction !== 'ALL') && <button type="button" className="ui-button ui-button-quiet" onClick={() => { setSearch(''); setFilterAction('ALL'); }}>Clear filters</button>}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden bg-white dark:bg-[#1a1a1a] shadow-xs">
-          <table className="w-full text-left border-collapse text-sm">
+        <div className="border border-slate-200 dark:border-white/10 rounded-2xl overflow-x-auto bg-white dark:bg-[#1a1a1a] shadow-xs">
+          <table aria-label="Workspace activity" className="min-w-[640px] w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#222]">
                 <th className="py-2.5 px-4 font-semibold text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">Timestamp</th>
@@ -79,6 +74,7 @@ export function AuditView({ auth, auditLogs }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-mono text-[11px]">
+              {filteredLogs.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center font-sans text-sm text-slate-600 dark:text-slate-300">{auditLogs.length ? 'No events match your filters.' : 'No workspace activity yet.'}</td></tr>}
               {filteredLogs.map((log) => {
                 let badgeClass = 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300';
                 if (log.action === 'PII_SCRUBBED') badgeClass = 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400';
@@ -88,19 +84,19 @@ export function AuditView({ auth, auditLogs }: Props) {
                 return (
                   <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition">
                     <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {new Date(log.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap font-sans font-medium text-slate-900 dark:text-white">
                       {log.userName}
                       <span className="text-[10px] text-slate-400 ml-1">({log.userRole})</span>
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${badgeClass}`}>
-                        {log.action}
+                      <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${badgeClass}`}>
+                        {labelFor(log.action)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-md truncate">
-                      {log.details}
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-md">
+                      <details><summary className="w-fit cursor-pointer font-sans text-sm font-medium text-violet-700 dark:text-violet-300">View details</summary><p className="mt-2 break-all whitespace-pre-wrap">{log.details}</p></details>
                     </td>
                     <td className="py-3 px-4 text-slate-400 text-right whitespace-nowrap">
                       {log.ipAddress}

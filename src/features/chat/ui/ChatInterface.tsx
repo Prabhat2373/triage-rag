@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { ArrowDown } from 'lucide-react';
-import type { IncidentSuggestionState } from '../incident-suggestions';
+import type { ChatModelOption } from '../models/catalog';
+import { replyToGreeting } from '../conversation/context';
+import type { IncidentSuggestionState } from '../retrieval/suggestions';
 import { ChatWelcome } from './ChatWelcome';
 import { MessageItem, type DisplayMessage } from './MessageItem';
 import { ChatInput } from './ChatInput';
@@ -19,6 +21,7 @@ interface Props {
   initialChatMessages: ChatMessage[];
   activeSessionId: number | null;
   selectedModel: string;
+  modelOptions: ChatModelOption[];
   onSelectModel: (model: string) => void;
   onSessionUpdated?: (sessionId: number, newTitle: string) => void;
   evidenceOpen: boolean;
@@ -32,6 +35,7 @@ export function ChatInterface({
   initialChatMessages,
   activeSessionId,
   selectedModel,
+  modelOptions,
   onSelectModel,
   onSessionUpdated,
   evidenceOpen,
@@ -94,11 +98,12 @@ export function ChatInterface({
     }
   }
 
-  const handleFeedback = async (message: ChatMessage, rating: 'helpful' | 'unhelpful') => {
-    await submitEvaluation({
+  const handleFeedback = async (message: ChatMessage, rating: 'helpful' | 'unhelpful', evaluationId?: number) => {
+    return submitEvaluation({
+      evaluationId,
       query: message.content,
       modelUsed: message.model ?? selectedModel,
-      similarityScore: message.sources?.[0] ? `${(message.sources[0].similarity * 100).toFixed(1)}%` : 'N/A',
+      similarityScore: message.sources?.[0]?.matchKind === 'keyword' ? 'Keyword match' : message.sources?.[0] ? `${(message.sources[0].similarity * 100).toFixed(1)}%` : 'N/A',
       rating,
       latencyMs: message.retrievalLatencyMs,
     });
@@ -107,6 +112,9 @@ export function ChatInterface({
   const handleSendMessage = async (queryText?: string, retryUserId?: string) => {
     const textToSend = queryText || input;
     if (!textToSend.trim() || activeRequest.current) return;
+
+    const recentMessages = retryUserId ? messages.slice(0, -2) : messages;
+    const previousQuestion = recentMessages.findLast((message) => message.role === 'user' && !replyToGreeting(message.content))?.content.slice(0, 1800);
 
     const turn = ++requestNumber.current;
     const userMsgId = retryUserId ?? `pending-user-${turn}`;
@@ -128,7 +136,7 @@ export function ChatInterface({
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: textToSend, model: selectedModel, sessionId: activeSessionId }),
+        body: JSON.stringify({ query: textToSend, model: selectedModel, sessionId: activeSessionId, previousQuestion: activeSessionId == null ? previousQuestion : undefined }),
         signal: request.signal,
       });
 
@@ -229,6 +237,7 @@ export function ChatInterface({
           onSubmit={handleSendMessage}
           isLoading={isLoading}
           selectedModel={selectedModel}
+          modelOptions={modelOptions}
           onSelectModel={onSelectModel}
           onStop={() => activeRequest.current?.abort('user-stopped')}
         />

@@ -1,21 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Download, FileSpreadsheet, LoaderCircle, X } from 'lucide-react';
+import { useId, useState, type FormEvent } from 'react';
+import { Download, LoaderCircle } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 import { importIncidentWorkbook } from '../actions';
 import { INCIDENT_COLUMNS, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS } from '../incident-input';
 
 export function ImportIncidentsDialog({ onClose }: { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const formId = useId();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
-
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,28 +43,14 @@ export function ImportIncidentsDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby="import-incidents-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onClose();
-      }}
-      className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl backdrop:bg-slate-950/55 sm:p-6 dark:border-white/10 dark:bg-[#23202c] dark:text-slate-100"
-    >
-      <div className="mb-4 flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-200">
-          <FileSpreadsheet aria-hidden="true" className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 id="import-incidents-title" className="text-lg font-semibold tracking-tight">Import from Excel</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">Add resolved incidents from the first sheet of an Excel workbook.</p>
-        </div>
-        <button type="button" onClick={onClose} disabled={pending} aria-label="Close Excel import" className="grid size-9 shrink-0 place-items-center rounded-lg hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/10">
-          <X aria-hidden="true" className="size-4" />
+    <Modal title="Import from Excel" description="Add resolved incidents from the first sheet of an Excel workbook." busy={pending} onClose={onClose}
+      footer={<>
+        <button type="button" onClick={onClose} disabled={pending} className="ui-button ui-button-quiet">{result ? 'Done' : 'Cancel'}</button>
+        <button type="submit" form={formId} disabled={pending} className="ui-button ui-button-primary">
+          {pending && <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />}
+          {pending ? 'Importing…' : 'Import incidents'}
         </button>
-      </div>
-
+      </>}>
       <div className="mb-5 rounded-xl bg-slate-50 p-3 text-sm dark:bg-white/5">
         <p className="text-slate-700 dark:text-slate-200">Use these column names in the first row:</p>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{INCIDENT_COLUMNS.map(({ label }) => label).join(' · ')}</p>
@@ -78,7 +59,7 @@ export function ImportIncidentsDialog({ onClose }: { onClose: () => void }) {
         </a>
       </div>
 
-      <form onSubmit={submit} className="space-y-4">
+      <form id={formId} onSubmit={submit} className="space-y-4">
         <div>
           <label htmlFor="incident-workbook" className="mb-1.5 block text-sm font-semibold">Excel workbook</label>
           <input
@@ -103,16 +84,7 @@ export function ImportIncidentsDialog({ onClose }: { onClose: () => void }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={pending} className="min-h-10 rounded-lg px-3 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/10">
-            {result ? 'Done' : 'Cancel'}
-          </button>
-          <button type="submit" disabled={pending} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60">
-            {pending && <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />}
-            {pending ? 'Importing…' : 'Import incidents'}
-          </button>
-        </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }

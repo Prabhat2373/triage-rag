@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { X, Users } from 'lucide-react';
+import { Copy, Mail, UserRound } from 'lucide-react';
+import { TextInput } from '@/components/forms/TextInput';
+import { Modal } from '@/components/ui/Modal';
 import { inviteTeamMember } from '@/features/accounts/actions';
 import type { Organization } from '@/db/schema';
 
@@ -12,122 +14,81 @@ interface Props {
   org: Organization;
 }
 
-export function InviteMemberModal({ isOpen, onClose, org }: Props) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [invitationCode, setInvitationCode] = useState<string | null>(null);
-  const [role, setRole] = useState<'admin' | 'member'>('member');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function InviteMemberModal({ isOpen, ...props }: Props) {
+  return isOpen ? <InviteDialog {...props} /> : null;
+}
 
-  if (!isOpen) return null;
+function InviteDialog({ onClose, org }: Omit<Props, 'isOpen'>) {
+  const id = useId();
+  const [recipient, setRecipient] = useState<{ email: string; code: string }>();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-    const res = await inviteTeamMember({ name, email, role });
-    setIsSubmitting(false);
-    if (res.success && res.code) {
-      setInvitationCode(res.code);
-    } else {
-      setError(res.error || 'Failed to invite member');
+  async function invite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email')).trim();
+    setPending(true);
+    setError('');
+    try {
+      const result = await inviteTeamMember({
+        name: String(form.get('name')).trim(), email,
+        role: form.get('role') === 'admin' ? 'admin' : 'member',
+      });
+      if (result.success && result.code) setRecipient({ email, code: result.code });
+      else setError(result.error || 'Unable to create the invitation.');
+    } catch {
+      setError('Unable to create the invitation. Try again.');
+    } finally {
+      setPending(false);
     }
-  };
+  }
+
+  async function copyInvitation() {
+    if (!recipient) return;
+    try {
+      await navigator.clipboard.writeText(recipient.code);
+      setCopyStatus('Invitation code copied.');
+    } catch {
+      setCopyStatus('Select the code to copy it manually.');
+    }
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-white/10 max-w-md w-full p-6 shadow-2xl relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="flex items-center gap-3 mb-5">
-          <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Invite Team Member</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Add engineers to {org.name}</p>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs">
-            {error}
-          </div>
+    <Modal title={recipient ? 'Invitation ready' : 'Invite a team member'} description={`Workspace: ${org.name}`} busy={pending} onClose={onClose}
+      footer={<>
+        {copyStatus && <span role="status" className="mr-auto text-sm">{copyStatus}</span>}
+        <button type="button" onClick={onClose} disabled={pending} className="ui-button ui-button-quiet">{recipient ? 'Done' : 'Cancel'}</button>
+        {recipient ? (
+          <button type="button" onClick={copyInvitation} className="ui-button ui-button-primary"><Copy aria-hidden="true" className="size-4" /> Copy code</button>
+        ) : (
+          <button type="submit" form={id} disabled={pending} className="ui-button ui-button-primary">{pending ? 'Creating…' : 'Create invitation'}</button>
         )}
-
-        {invitationCode ? (
-          <div className="space-y-3 text-xs">
-            <p>Share this code privately with {email}. It expires after 24 hours.</p>
-            <input aria-label="Invitation code" className="w-full rounded border bg-transparent p-2 font-mono" readOnly value={invitationCode} onFocus={(event) => event.currentTarget.select()} />
-            <p>They can choose their password on the <Link href="/invitation" className="text-indigo-500 underline">invitation page</Link>.</p>
-          </div>
-        ) : <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Alex Rivera"
-              className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
-              Corporate Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="engineer@acme.corp"
-              className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
-              Role & Permissions
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-              className="w-full bg-slate-50 dark:bg-[#171717] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="member">Member (Use copilot, add incidents)</option>
-              <option value="admin">Admin (Manage Integrations, Audit, RBAC)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
-            >
-              {isSubmitting ? 'Creating invitation...' : 'Create Invitation'}
-            </button>
-          </div>
-        </form>}
-      </div>
-    </div>
+      </>}>
+      {recipient ? (
+        <div className="space-y-3 text-sm">
+          <p className="break-words">Share this code privately with <strong>{recipient.email}</strong>. It expires after 24 hours.</p>
+          <TextInput label="Invitation code" value={recipient.code} readOnly onFocus={(event) => event.currentTarget.select()} />
+          <p>They can redeem it on the <Link href="/invitation" className="font-semibold text-violet-700 underline dark:text-violet-300">invitation page</Link>.</p>
+        </div>
+      ) : (
+        <form id={id} onSubmit={invite}>
+          <fieldset disabled={pending} className="space-y-4">
+            {error && <p role="alert" className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-200">{error}</p>}
+            <TextInput name="name" label="Full name" icon={UserRound} placeholder="Alex Rivera" maxLength={120} required />
+            <TextInput name="email" label="Work email" type="email" icon={Mail} placeholder="alex@company.com" maxLength={254} required />
+            <div>
+              <label htmlFor={`${id}-role`} className="mb-1.5 block text-sm font-semibold">Workspace role</label>
+              <select id={`${id}-role`} name="role" className="ui-field" aria-describedby={`${id}-role-help`}>
+                <option value="member">Member</option>
+                <option value="admin">Administrator</option>
+              </select>
+              <p id={`${id}-role-help`} className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">Members can use chat and add incidents. Administrators can also manage team access and integrations.</p>
+            </div>
+          </fieldset>
+        </form>
+      )}
+    </Modal>
   );
 }

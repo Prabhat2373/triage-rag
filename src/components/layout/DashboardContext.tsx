@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { DEFAULT_CHAT_MODEL, isChatModel } from '@/features/chat/types';
+import { DEFAULT_CHAT_MODEL, isChatModel } from '@/features/chat/models/catalog';
 import type { ChatSession } from '@/db/schema';
 import type { AuthContext } from '@/features/accounts/session';
 

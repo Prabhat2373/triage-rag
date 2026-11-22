@@ -38,7 +38,8 @@ export const tickets = pgTable(
     symptom: text('symptom').notNull(),
     resolution: text('resolution').notNull(),
     sourceUrl: text('source_url'),
-    embedding: vector('embedding', { dimensions: 768 }).notNull(),
+    embedding: vector('embedding', { dimensions: 768 }),
+    geminiEmbedding: vector('gemini_embedding', { dimensions: 768 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [

@@ -1,10 +1,11 @@
 import { embedMany } from 'ai';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { ollama } from 'ollama-ai-provider-v2';
+import { getLocalEmbeddingModel } from '@/features/chat/models/providers/ollama';
 import { db } from '@/db';
 import { tickets } from '@/db/schema';
 import { logAuditEvent } from '@/features/audit/log-event';
 import type { AuthContext } from '@/features/accounts/session';
+import { canSaveWithoutLocalEmbeddings } from '@/features/chat/models/registry';
 import { sanitizeText } from '@/features/privacy/redact';
 import { type IncidentInput, INCIDENT_COLUMNS } from './incident-input';
 
@@ -49,11 +50,19 @@ export async function saveResolvedIncidents(auth: AuthContext, inputs: IncidentT
   const candidates = [...uniqueIncidents.values()];
   if (candidates.length === 0) return { inserted: [], updated: 0, skipped: inputs.length };
 
-  const { embeddings } = await embedMany({
-    model: ollama.textEmbeddingModel('nomic-embed-text', { maxEmbeddingsPerCall: 12 }),
-    values: candidates.map(({ incident }) => `Title: ${incident.title}\nSymptom: ${incident.symptom}\nResolution: ${incident.resolution}`),
-    maxParallelCalls: 2,
-  });
+  let embeddings: number[][] = [];
+  try {
+    ({ embeddings } = await embedMany({
+      model: getLocalEmbeddingModel(12),
+      values: candidates.map(({ incident }) => `Title: ${incident.title}\nSymptom: ${incident.symptom}\nResolution: ${incident.resolution}`),
+      maxParallelCalls: 2,
+      maxRetries: 0,
+      abortSignal: AbortSignal.timeout(15000),
+    }));
+  } catch (error) {
+    if (!canSaveWithoutLocalEmbeddings()) throw error;
+    // Gemini indexes these records when selected in chat.
+  }
 
   const { inserted, updated, changedCodes } = await db.transaction(async (transaction) => {
     // Serialize incident writes for this workspace and recheck IDs after embedding.
@@ -65,7 +74,7 @@ export async function saveResolvedIncidents(auth: AuthContext, inputs: IncidentT
     const updatedCodes: string[] = [];
 
     for (const [index, { incident }] of candidates.entries()) {
-      const row = { ...incident, orgId, embedding: embeddings[index] };
+      const row = { ...incident, orgId, embedding: embeddings[index] ?? null, geminiEmbedding: null };
       const existingRow = existingByCode.get(row.ticketCode);
       if (!existingRow) newRows.push(row);
       else if (shouldUpdate(existingRow, incident)) {

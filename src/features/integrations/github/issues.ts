@@ -1,3 +1,4 @@
+import { extractDocumentedResolution } from '../documented-resolution';
 import type { IncidentInput } from '@/features/incidents/incident-input';
 import { sanitizeText } from '@/features/privacy/redact';
 
@@ -6,13 +7,18 @@ export interface GitHubImportInput {
   repo: string;
   label: string;
   token: string;
+  issueNumber?: number;
 }
 
 export interface GitHubIncident extends IncidentInput {
   sourceUrl: string;
 }
 
-export class GitHubImportError extends Error {}
+export class GitHubImportError extends Error {
+  constructor(message: string, readonly status = 400) {
+    super(message);
+  }
+}
 
 export function readGitHubInput(body: unknown): GitHubImportInput {
   const input = body as Partial<GitHubImportInput> | null;
@@ -29,7 +35,17 @@ export function readGitHubInput(body: unknown): GitHubImportInput {
     throw new GitHubImportError('Use a fine-grained personal access token, or leave it blank for a public repository.');
   }
 
-  return { owner, repo, label, token };
+  const rawIssueNumber = (body as { issueNumber?: unknown } | null)?.issueNumber;
+  let issueNumber: number | undefined;
+  if (rawIssueNumber != null && rawIssueNumber !== '') {
+    const value = typeof rawIssueNumber === 'string' ? rawIssueNumber.trim().replace(/^#/, '') : '';
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+      throw new GitHubImportError('Enter a valid GitHub issue number.');
+    }
+    issueNumber = Number(value);
+  }
+
+  return { owner, repo, label, token, issueNumber };
 }
 
 interface Issue {
@@ -37,46 +53,67 @@ interface Issue {
   number: number;
   title: string;
   body: string | null;
+  state?: 'open' | 'closed';
   state_reason?: string | null;
   pull_request?: object;
   labels: { name: string }[];
+  comments?: number;
+  user?: { login: string } | null;
 }
 
-function splitResolution(body: string) {
-  const heading = /^(?:#{1,6}\s+)?(?:\*\*|__)?(?:resolution|fix applied|how it was fixed)(?:\*\*|__)?\s*:?[^\S\r\n]*(?:\r?\n|$)/im.exec(body);
-  if (!heading) return null;
-
-  const afterHeading = body.slice(heading.index + heading[0].length);
-  const resolution = afterHeading.split(/^#{1,6}\s/m, 1)[0].trim();
-  if (!resolution || /^(?:n\/a|none|tbd|not applicable|to do|todo)\.?$/i.test(resolution)) return null;
-  return { symptom: body.slice(0, heading.index).trim(), resolution };
+interface IssueComment {
+  body: string;
+  author_association?: string;
+  user?: { login: string } | null;
 }
 
-export function toGitHubIncident(issue: Issue, { owner, repo, label }: GitHubImportInput): GitHubIncident | null {
-  if (issue.pull_request || (issue.state_reason && issue.state_reason !== 'completed')) return null;
-  if (!Number.isSafeInteger(issue.id) || issue.id < 1 || !Number.isSafeInteger(issue.number) || issue.number < 1) return null;
-  if (typeof issue.title !== 'string' || !issue.title.trim() || typeof issue.body !== 'string') return null;
-  const sections = splitResolution(issue.body);
-  if (!sections) return null;
+type SkipReason = 'pullRequest' | 'notCompleted' | 'invalidIssue' | 'noDocumentedFix' | 'commentsUnavailable';
+
+function getEligibilityProblem(issue: Issue): SkipReason | undefined {
+  if (issue.pull_request) return 'pullRequest';
+  if (issue.state === 'open' || (issue.state_reason && issue.state_reason !== 'completed')) return 'notCompleted';
+  if (!Number.isSafeInteger(issue.id) || issue.id <= 0
+    || !Number.isSafeInteger(issue.number) || issue.number <= 0
+    || typeof issue.title !== 'string' || !issue.title.trim()) return 'invalidIssue';
+}
+
+export function toGitHubIncident(issue: Issue, { owner, repo, label }: GitHubImportInput, comments: IssueComment[] = []): GitHubIncident | null {
+  if (getEligibilityProblem(issue)) return null;
+  const description = issue.body ?? '';
+  const fromDescription = extractDocumentedResolution(description);
+  let fromParticipant: string | undefined;
+  let fromTrustedComment: string | undefined;
+  for (const comment of [...comments].reverse()) {
+    if (typeof comment.body !== 'string') continue;
+    const documented = extractDocumentedResolution(comment.body, true);
+    if (!documented) continue;
+    const author = comment.user?.login;
+    const trusted = Boolean(author && author === issue.user?.login)
+      || ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(comment.author_association ?? '');
+    if (trusted) {
+      fromTrustedComment = documented.resolution;
+      break;
+    }
+    if (issue.state_reason === 'completed') fromParticipant ??= documented.resolution;
+  }
+  const resolution = fromTrustedComment ?? fromDescription?.resolution ?? fromParticipant;
+  if (!resolution) return null;
 
   const clean = (value: string, length: number) => sanitizeText(value).sanitized.trim().slice(0, length);
   return {
     ticketCode: `GH-${issue.id}`,
     category: clean(label || issue.labels?.[0]?.name || 'GitHub', 100),
     title: clean(issue.title, 250),
-    symptom: clean(sections.symptom || issue.title, 2400),
-    resolution: clean(sections.resolution, 2400),
+    symptom: clean((fromDescription?.summary ?? description.trim()) || issue.title, 2400),
+    resolution: clean(resolution, 2400),
     sourceUrl: `https://github.com/${owner}/${repo}/issues/${issue.number}`,
   };
 }
 
-export async function fetchGitHubIncidents(input: GitHubImportInput) {
-  const url = new URL(`https://api.github.com/repos/${input.owner}/${input.repo}/issues`);
-  url.search = new URLSearchParams({
-    state: 'closed', sort: 'updated', direction: 'desc', per_page: '30',
-    ...(input.label ? { labels: input.label } : {}),
-  }).toString();
-
+async function readGitHubJson(url: URL, input: GitHubImportInput): Promise<unknown> {
+  const timeout = AbortSignal.timeout(10_000);
+  const isCommentsRequest = url.pathname.endsWith('/comments');
+  const requestTarget = isCommentsRequest ? 'issue comments' : 'issues';
   let response: Response;
   try {
     response = await fetch(url, {
@@ -87,26 +124,91 @@ export async function fetchGitHubIncidents(input: GitHubImportInput) {
       },
       redirect: 'error',
       cache: 'no-store',
-      signal: AbortSignal.timeout(10_000),
+      signal: timeout,
     });
   } catch {
-    throw new GitHubImportError('Could not reach GitHub. Check the repository name and try again.');
+    if (timeout.aborted) {
+      throw new GitHubImportError(`GitHub timed out while loading ${requestTarget}. Try again or check whether the app server can reach api.github.com.`, 504);
+    }
+    throw new GitHubImportError(`Could not reach GitHub to load ${requestTarget}. Check the app server’s network connection to api.github.com.`, 502);
   }
 
   if (response.status === 401) throw new GitHubImportError('GitHub rejected the token. Check whether it has expired.');
-  if (response.status === 429 || (response.headers.get('x-ratelimit-remaining') === '0' && !response.ok)) {
-    throw new GitHubImportError('GitHub’s API limit was reached. Try again later or provide a token for public repositories.');
+  if (response.status === 429 || (!response.ok && (response.headers.get('x-ratelimit-remaining') === '0' || response.headers.has('retry-after')))) {
+    throw new GitHubImportError('GitHub’s API limit was reached. Try again later or provide a token for public repositories.', 429);
   }
   if (response.status === 403 || response.status === 404) {
     throw new GitHubImportError('Repository unavailable. Check the owner, repository, token access, and any organization approval requirements.');
   }
-  if (!response.ok) throw new GitHubImportError('GitHub could not list issues for this repository.');
+  if (!response.ok) throw new GitHubImportError(`GitHub could not load ${requestTarget}.`, 502);
 
-  const issues = await response.json() as Issue[];
-  if (!Array.isArray(issues)) throw new GitHubImportError('GitHub returned an unexpected response.');
-  const incidents = issues.flatMap((issue) => {
-    const incident = toGitHubIncident(issue, input);
-    return incident ? [incident] : [];
+  try {
+    return await response.json();
+  } catch {
+    if (timeout.aborted) throw new GitHubImportError(`GitHub timed out while downloading ${requestTarget}.`, 504);
+    throw new GitHubImportError(`GitHub returned an unreadable response for ${requestTarget}.`, 502);
+  }
+}
+
+async function readGitHubList<T>(url: URL, input: GitHubImportInput): Promise<T[]> {
+  const data = await readGitHubJson(url, input);
+  if (!Array.isArray(data)) throw new GitHubImportError('GitHub returned an unexpected response.');
+  return data;
+}
+
+export async function fetchGitHubIncidents(input: GitHubImportInput) {
+  const base = `https://api.github.com/repos/${input.owner}/${input.repo}/issues`;
+  const url = new URL(base);
+  url.search = new URLSearchParams({
+    state: 'closed', sort: 'updated', direction: 'desc', per_page: '30',
+    ...(input.label ? { labels: input.label } : {}),
+  }).toString();
+
+  let issues: Issue[];
+  if (input.issueNumber !== undefined) {
+    const issue = await readGitHubJson(new URL(`${base}/${input.issueNumber}`), input) as Issue | null;
+    if (!issue || issue.number !== input.issueNumber) throw new GitHubImportError('GitHub returned an unexpected issue.');
+    if (getEligibilityProblem(issue) || issue.state !== 'closed') {
+      throw new GitHubImportError(`Issue #${input.issueNumber} must be a closed issue marked Completed.`);
+    }
+    issues = [issue];
+  } else {
+    issues = await readGitHubList<Issue>(url, input);
+  }
+  const skippedIssues: { number?: number; reason: SkipReason }[] = [];
+  const eligible = issues.filter((issue) => {
+    const reason = getEligibilityProblem(issue);
+    if (!reason) return true;
+    skippedIssues.push({ number: Number.isSafeInteger(issue.number) ? issue.number : undefined, reason });
+    return false;
   });
-  return { scanned: issues.length, incidents };
+  const incidents: GitHubIncident[] = [];
+  let incompleteThreads = 0;
+  for (let start = 0; start < eligible.length; start += 4) {
+    const batch = await Promise.all(eligible.slice(start, start + 4).map(async (issue) => {
+      // Use a documented description when available to save API requests.
+      const conversionInput = input.issueNumber === undefined ? input : { ...input, label: '' };
+      const documented = toGitHubIncident(issue, conversionInput);
+      if (documented) return { incident: documented };
+      if (!issue.comments) return { reason: 'noDocumentedFix' as const };
+
+      const commentsUrl = new URL(`${base}/${issue.number}/comments`);
+      commentsUrl.searchParams.set('per_page', '100');
+      commentsUrl.searchParams.set('page', String(Math.ceil(issue.comments / 100)));
+      try {
+        const comments = await readGitHubList<IssueComment>(commentsUrl, input);
+        const incident = toGitHubIncident(issue, conversionInput, comments);
+        return incident ? { incident } : { reason: 'noDocumentedFix' as const };
+      } catch (error) {
+        if (input.issueNumber !== undefined || !(error instanceof GitHubImportError) || error.status < 500) throw error;
+        incompleteThreads++;
+        return { reason: 'commentsUnavailable' as const };
+      }
+    }));
+    batch.forEach(({ incident, reason }, index) => {
+      if (incident) incidents.push(incident);
+      if (reason) skippedIssues.push({ number: eligible[start + index].number, reason });
+    });
+  }
+  return { scanned: issues.length, incidents, incompleteThreads, skippedIssues };
 }

@@ -1,22 +1,22 @@
-import { FileCheck2, LoaderCircle, Search } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export function ResponseProgress({ sourceCount }: { sourceCount?: number }) {
-  const searching = sourceCount === undefined;
-  const title = searching ? 'Searching your knowledge base'
-    : sourceCount > 0 ? 'Preparing an answer' : 'Finishing the search';
-  const detail = searching ? 'Checking for resolved incidents with similar symptoms.'
-    : sourceCount > 0 ? `${sourceCount} related ${sourceCount === 1 ? 'incident' : 'incidents'} found.` : 'No related incidents found.';
-
   return (
-    <div role="status" aria-live="polite" className="mt-2 flex max-w-md items-center gap-3 rounded-2xl border border-violet-200/70 bg-white/85 px-3.5 py-3 shadow-sm dark:border-violet-400/20 dark:bg-[#252131]">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-200">
-        {searching ? <Search aria-hidden="true" className="size-4" /> : <FileCheck2 aria-hidden="true" className="size-4" />}
+    <div role="status" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-violet-200/70 bg-white/85 px-3 text-sm font-medium text-violet-900 shadow-sm dark:border-violet-400/20 dark:bg-[#252131] dark:text-violet-200">
+        <Sparkles aria-hidden="true" className="size-4 text-violet-600 dark:text-violet-300" />
+        Thinking<span className="sr-only">…</span>
+        <span aria-hidden="true" className="inline-flex items-center gap-1">
+          <span className="size-1 rounded-full bg-current motion-safe:animate-bounce" />
+          <span className="size-1 rounded-full bg-current motion-safe:animate-bounce [animation-delay:120ms]" />
+          <span className="size-1 rounded-full bg-current motion-safe:animate-bounce [animation-delay:240ms]" />
+        </span>
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{detail}</p>
-      </div>
-      <LoaderCircle aria-hidden="true" className="size-4 shrink-0 text-violet-700 motion-safe:animate-spin dark:text-violet-300" />
+      {Boolean(sourceCount) && (
+        <span className="text-xs text-slate-600 dark:text-slate-300">
+          {sourceCount} related {sourceCount === 1 ? 'incident' : 'incidents'} found
+        </span>
+      )}
     </div>
   );
 }

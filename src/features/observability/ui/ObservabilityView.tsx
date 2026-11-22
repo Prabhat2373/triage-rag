@@ -1,18 +1,19 @@
 'use client';
 
 import React from 'react';
-import { CHAT_MODELS } from '@/features/chat/types';
+import type { ChatModelOption } from '@/features/chat/models/catalog';
 import { Activity, ThumbsUp, ThumbsDown } from 'lucide-react';
 import type { Evaluation } from '@/db/schema';
 import type { AuthContext } from '@/features/accounts/session';
 
 interface Props {
   auth: AuthContext;
+  availableModels: ChatModelOption[];
   evaluations: Evaluation[];
   retrievalLatencies: number[];
 }
 
-export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Props) {
+export function ObservabilityView({ auth, evaluations, retrievalLatencies, availableModels }: Props) {
   const helpfulCount = evaluations.filter((e) => e.rating === 'helpful').length;
   const unhelpfulCount = evaluations.filter((e) => e.rating === 'unhelpful').length;
   const satisfactionRate =
@@ -32,7 +33,7 @@ export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Pro
           <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Copilot performance</h1>
         </div>
         <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Real-time metrics, retrieval latency breakdowns, and human ground-truth feedback in {auth.org.name}
+          See how quickly the copilot finds incidents and how useful people find the answers in {auth.org.name}.
         </p>
       </div>
 
@@ -41,7 +42,7 @@ export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Pro
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xs">
             <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-              RAG Satisfaction Rate
+              Helpful answers
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-[1.625rem] font-semibold tracking-tight text-slate-950 dark:text-white">{evaluations.length ? `${satisfactionRate}%` : satisfactionRate}</span>
@@ -51,7 +52,7 @@ export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Pro
 
           <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xs">
             <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-              Avg Retrieval Latency
+              Average search time
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-[1.625rem] font-semibold tracking-tight text-slate-950 dark:text-white">{averageLatency === null ? '—' : `${averageLatency} ms`}</span>
@@ -61,33 +62,33 @@ export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Pro
 
           <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xs">
             <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-              Selectable Local Models
+              Available models
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-[1.625rem] font-semibold tracking-tight text-slate-950 dark:text-white">{CHAT_MODELS.length}</span>
-              <span className="text-xs text-indigo-500 font-mono">{CHAT_MODELS.map((model) => model.name).join(' · ')}</span>
+              <span className="text-[1.625rem] font-semibold tracking-tight text-slate-950 dark:text-white">{availableModels.length}</span>
+              <span className="text-xs text-indigo-500 font-mono">{availableModels.map((model) => model.name).join(' · ')}</span>
             </div>
           </div>
 
           <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xs">
             <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-              Vector Distance Metric
+              Search method
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">Cosine</span>
-              <span className="text-xs text-emerald-500 font-medium">dim=768</span>
+              <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">Semantic</span>
+              <span className="text-xs text-emerald-500 font-medium">Similarity search</span>
             </div>
           </div>
         </div>
 
         {/* Live Human Evaluations Table */}
-        <div className="border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden bg-white dark:bg-[#1a1a1a] shadow-xs">
+        <div className="border border-slate-200 dark:border-white/10 rounded-2xl overflow-x-auto bg-white dark:bg-[#1a1a1a] shadow-xs">
           <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
             <h3 className="font-semibold text-base text-slate-900 dark:text-white">Recent feedback</h3>
             <span className="text-[11px] text-slate-400 font-mono">{evaluations.length} records</span>
           </div>
 
-          <table className="w-full text-left border-collapse text-sm">
+          <table aria-label="Recent feedback" className="min-w-[650px] w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#222]">
                 <th className="py-2.5 px-4 font-semibold text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">Rating</th>
@@ -98,6 +99,7 @@ export function ObservabilityView({ auth, evaluations, retrievalLatencies }: Pro
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              {evaluations.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-600 dark:text-slate-300">No feedback yet. Ratings on copilot answers will appear here.</td></tr>}
               {evaluations.map((ev) => (
                 <tr key={ev.id} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition">
                   <td className="py-3 px-4 whitespace-nowrap">

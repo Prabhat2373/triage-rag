@@ -6,8 +6,18 @@ import { GitFork, KeyRound } from 'lucide-react';
 import { TextInput } from '@/components/forms/TextInput';
 import { PasswordField } from '@/components/forms/PasswordField';
 
+const skipLabels = {
+  pullRequest: 'Pull request',
+  notCompleted: 'Issue wasn’t closed as completed',
+  invalidIssue: 'Missing issue details',
+  noDocumentedFix: 'No fix recognized in the description or checked comments',
+  commentsUnavailable: 'Comments could not be loaded',
+};
+
 type Preview = {
   scanned: number;
+  skippedIssues?: { number?: number; reason: keyof typeof skipLabels }[];
+  incompleteThreads?: number;
   incidents: { ticketCode: string; title: string; category: string; sourceUrl: string }[];
   imported?: number;
   updated?: number;
@@ -39,7 +49,7 @@ export function GitHubImport({ canManage, connection }: { canManage: boolean; co
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...settings, token, action,
+          ...settings, token, action, issueNumber: String(form.get('issueNumber')).trim(),
           codes: preview?.incidents.map(({ ticketCode }) => ticketCode),
         }),
       });
@@ -88,6 +98,8 @@ export function GitHubImport({ canManage, connection }: { canManage: boolean; co
               <TextInput name="repo" defaultValue={savedConnection?.repo} label="Repository name" placeholder="e.g. checkout-service" maxLength={100} required />
             </div>
             <TextInput name="label" defaultValue={savedConnection?.label} label="Issue label (optional)" placeholder="e.g. incident" maxLength={50} />
+            <TextInput name="issueNumber" label="Issue number (optional)" inputMode="numeric" placeholder="e.g. 150395" maxLength={16}
+              hint="Preview one issue directly, regardless of its age or label. Leave blank to preview recent closed issues." />
             <PasswordField
               label="GitHub access token (private repos)"
               icon={KeyRound}
@@ -102,11 +114,27 @@ export function GitHubImport({ canManage, connection }: { canManage: boolean; co
           <p className="text-sm text-slate-600 dark:text-slate-300">
             Use a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer" className="font-semibold text-violet-700 underline dark:text-violet-300">fine-grained token</a> for the selected repository with <strong>Issues: Read-only</strong>. Imported issue content is available to members of this TriageRAG workspace.
           </p>
-          <p className="text-sm text-slate-600 dark:text-slate-300">Open issues aren’t imported. After documenting the fix and closing the issue as completed, run the preview again. The preview checks up to 30 recently updated closed issues. Each issue needs a <strong>Resolution</strong>, <strong>Fix applied</strong>, or <strong>How it was fixed</strong> section in its description.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Open issues aren’t imported. After documenting the fix and closing the issue as completed, run the preview again. Without an issue number, the preview checks up to 30 recently updated closed issues. A fix can be documented in the description or in a comment describing what worked. A comment like “Fixed by rolling back the deployment” works without a heading.</p>
           {error && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{error}</p>}
           {preview && (
-            <div role="status" className="rounded-xl border border-slate-200 p-3 text-sm dark:border-white/10">
-              <p className="font-semibold">{preview.scanned === 0 ? 'No closed issues matched this repository and label.' : `${preview.incidents.length} of ${preview.scanned} closed issues have a documented fix.`}</p>
+            <div className="rounded-xl border border-slate-200 p-3 text-sm dark:border-white/10">
+              <p role="status" className="font-semibold">{preview.scanned === 0 ? 'No closed issues matched this repository and label.' : `${preview.incidents.length} of ${preview.scanned} GitHub results are ready to import.`}</p>
+              {Boolean(preview.incompleteThreads) && (
+                <p className="mt-1 text-amber-800 dark:text-amber-300">Couldn’t read comments on {preview.incompleteThreads} of the closed issues. Try again or preview one issue by number.</p>
+              )}
+              {preview.scanned > 0 && preview.incidents.length === 0 && (
+                <p className="mt-1 text-slate-600 dark:text-slate-300">Try an issue number from a thread that explains how the issue was fixed.</p>
+              )}
+              {Boolean(preview.skippedIssues?.length) && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer font-medium text-violet-700 dark:text-violet-300">Why results were skipped ({preview.skippedIssues?.length})</summary>
+                  <ul className="mt-2 max-h-44 space-y-1 overflow-y-auto text-slate-600 dark:text-slate-300">
+                    {preview.skippedIssues?.map(({ number, reason }, index) => (
+                      <li key={number ?? `missing-${index}`}>{number ? `#${number} · ` : ''}{skipLabels[reason]}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               {preview.imported !== undefined ? (
                 <p className="mt-1">Added {preview.imported}, updated {preview.updated}, skipped {preview.skipped}.</p>
               ) : (

@@ -1,9 +1,12 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { chatMessages, chatSessions } from '@/db/schema';
 import type { AuthContext } from '@/features/accounts/session';
 import { sanitizeText } from '@/features/privacy/redact';
-import type { ChatMessage, SourceItem } from './types';
+import { redactSource } from '../retrieval/evidence';
+import { selectRelevantEvidence } from '../retrieval/relevance';
+import { isConversationalFollowUp, replyToGreeting } from './context';
+import type { ChatMessage, SourceItem } from '../types';
 
 export function ownedSession(sessionId: number, auth: AuthContext) {
   return and(
@@ -18,15 +21,37 @@ export async function readChatHistory(sessionId: number): Promise<ChatMessage[]>
     .where(eq(chatMessages.sessionId, sessionId))
     .orderBy(asc(chatMessages.createdAt), asc(chatMessages.id));
 
-  return rows.map((message) => ({
-    id: `msg-${message.id}`,
-    role: message.role === 'assistant' ? 'assistant' : 'user',
-    content: sanitizeText(message.content).sanitized,
-    model: message.model ?? undefined,
-    sources: readSources(message.sources),
-    retrievalLatencyMs: message.retrievalLatencyMs ?? undefined,
-    redactedCount: message.redactedCount ?? 0,
-  }));
+  let topic = '';
+  return rows.map((message) => {
+    const content = sanitizeText(message.content).sanitized;
+    if (message.role === 'user' && !replyToGreeting(content) && (!topic || !isConversationalFollowUp(content))) topic = content;
+    const sources = readSources(message.sources);
+    return {
+      id: `msg-${message.id}`,
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content,
+      model: message.model ?? undefined,
+      sources: sources && topic ? selectRelevantEvidence(topic, sources) : sources,
+      retrievalLatencyMs: message.retrievalLatencyMs ?? undefined,
+      redactedCount: message.redactedCount ?? 0,
+    };
+  });
+}
+
+export async function readRecentChatContext(sessionId: number) {
+  const rows = await db.select({ role: chatMessages.role, content: chatMessages.content, sources: chatMessages.sources })
+    .from(chatMessages).where(eq(chatMessages.sessionId, sessionId))
+    .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id)).limit(6);
+  const questionIndex = rows.findIndex((row) => row.role === 'user' && !replyToGreeting(row.content));
+  if (questionIndex < 0) return { previousQuestion: undefined, sources: [] };
+
+  const reply = rows[questionIndex - 1];
+  const topic = rows.slice(questionIndex).find((row) => row.role === 'user' && !isConversationalFollowUp(row.content) && !replyToGreeting(row.content));
+  const sources = reply?.role === 'assistant' ? readSources(reply.sources) ?? [] : [];
+  return {
+    previousQuestion: rows[questionIndex].content,
+    sources: topic ? selectRelevantEvidence(sanitizeText(topic.content).sanitized, sources) : sources,
+  };
 }
 
 function readSources(savedSources: string | null): SourceItem[] | undefined {
@@ -38,17 +63,6 @@ function readSources(savedSources: string | null): SourceItem[] | undefined {
   } catch {
     return undefined;
   }
-}
-
-export function redactSource(source: SourceItem): SourceItem {
-  return {
-    ticketCode: sanitizeText(source.ticketCode).sanitized,
-    title: sanitizeText(source.title).sanitized,
-    category: sanitizeText(source.category).sanitized,
-    symptom: sanitizeText(source.symptom).sanitized,
-    resolution: sanitizeText(source.resolution).sanitized,
-    similarity: Number(source.similarity),
-  };
 }
 
 export async function saveChatExchange(auth: AuthContext, exchange: {

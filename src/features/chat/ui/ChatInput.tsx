@@ -6,7 +6,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
   DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CHAT_MODELS, DEFAULT_CHAT_MODEL, MAX_CHAT_QUERY_LENGTH } from '@/features/chat/types';
+import { DEFAULT_CHAT_MODEL, type ChatModelOption } from '../models/catalog';
+import { MAX_CHAT_QUERY_LENGTH } from '../types';
 
 interface Props {
   input: string;
@@ -15,12 +16,13 @@ interface Props {
   onStop: () => void;
   isLoading: boolean;
   selectedModel: string;
+  modelOptions: ChatModelOption[];
   onSelectModel: (model: string) => void;
 }
 
-export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, selectedModel, onSelectModel }: Props) {
+export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, selectedModel, onSelectModel, modelOptions }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const model = CHAT_MODELS.find(({ id }) => id === selectedModel) ?? CHAT_MODELS[0];
+  const model = modelOptions.find(({ id }) => id === selectedModel) ?? modelOptions[0];
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -66,10 +68,10 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top">
-              <DropdownMenuLabel>Local AI models</DropdownMenuLabel>
+              <DropdownMenuLabel>AI models</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={model.id} onValueChange={onSelectModel}>
-                {CHAT_MODELS.map((option) => (
-                  <DropdownMenuRadioItem key={option.id} value={option.id}>
+                {modelOptions.map((option) => (
+                  <DropdownMenuRadioItem key={option.id} value={option.id} disabled={!option.available}>
                     <span className="flex flex-col">
                       <span className="font-medium">{option.name} {option.id === DEFAULT_CHAT_MODEL && <span className="text-xs text-violet-700 dark:text-violet-300">· Default</span>}</span>
                       <span className="text-xs text-slate-600 dark:text-slate-300">{option.label}</span>
@@ -80,6 +82,9 @@ export function ChatInput({ input, setInput, onSubmit, onStop, isLoading, select
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <span className="hidden text-xs text-slate-600 sm:inline dark:text-slate-300">
+            <kbd className="font-sans font-medium">Enter</kbd> to send · <kbd className="font-sans font-medium">Shift + Enter</kbd> for a new line
+          </span>
           {isLoading ? (
             <button type="button" onClick={onStop} aria-label="Stop response" className="grid size-11 shrink-0 place-items-center rounded-full bg-violet-700 text-white hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500">
               <Square aria-hidden="true" className="size-3.5 fill-current" />

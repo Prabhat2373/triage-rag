@@ -20,12 +20,13 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
   const [inspectedTicket, setInspectedTicket] = useState<IncidentRecord | null>(null);
   const [isIngestOpen, setIsIngestOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const categories = ['all', ...Array.from(new Set(tickets.map((t) => t.category)))];
 
   const filteredTickets = tickets.filter((t) => {
-    const matchesCat = selectedCategory === 'all' || t.category.toLowerCase().includes(selectedCategory.toLowerCase());
+    const matchesCat = selectedCategory === 'all' || t.category === selectedCategory;
     const matchesSearch =
       t.ticketCode.toLowerCase().includes(search.toLowerCase()) ||
       t.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -36,8 +37,15 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
   const handleDelete = async (ticketId: number) => {
     if (!confirm('Are you sure you want to permanently delete this incident?')) return;
     setDeletingId(ticketId);
-    await deleteTicket(ticketId);
-    setDeletingId(null);
+    setDeleteError('');
+    try {
+      const result = await deleteTicket(ticketId);
+      if (!result.success) setDeleteError(result.error || 'Unable to delete the incident.');
+    } catch {
+      setDeleteError('Unable to delete the incident. Try again.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -68,10 +76,11 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
       </div>
 
       <div className="p-4 border-b border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#1a1a1a]/50">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+        <div className="relative flex-1 min-w-0 max-w-md">
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
-            type="text"
+            type="search"
+            aria-label="Search resolved incidents"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by incident ID, title, or what happened…"
@@ -79,26 +88,18 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {categories.slice(0, 6).map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                  : 'bg-white dark:bg-[#282828] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Filter incidents by category" value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="ui-field w-auto max-w-full">
+            {categories.map((category) => <option key={category} value={category}>{category === 'all' ? 'All categories' : category}</option>)}
+          </select>
+          {(search || selectedCategory !== 'all') && <button type="button" className="ui-button ui-button-quiet" onClick={() => { setSearch(''); setSelectedCategory('all'); }}>Clear filters</button>}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {deleteError && <p role="alert" className="mb-3 text-sm text-rose-700 dark:text-rose-300">{deleteError}</p>}
         <div className="border border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1a1a1a] shadow-xs overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table aria-label="Resolved incidents" className="w-full min-w-[620px] text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#222]">
                 <th className="py-3 px-4 font-semibold text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">Incident ID</th>
@@ -135,7 +136,7 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
                       <button
                         onClick={() => setInspectedTicket(t)}
                         className="p-1.5 text-slate-500 hover:text-indigo-500 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition cursor-pointer"
-                        title="View incident"
+                        aria-label={`View ${t.title}`} title="View incident"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
@@ -144,7 +145,7 @@ export function KnowledgeBaseView({ auth, tickets }: Props) {
                           onClick={() => handleDelete(t.id)}
                           disabled={deletingId === t.id}
                           className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
-                          title="Delete incident"
+                          aria-label={`Delete ${t.title}`} title="Delete incident"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

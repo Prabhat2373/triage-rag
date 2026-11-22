@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
+import { Modal } from '@/components/ui/Modal';
+import { TextInput } from '@/components/forms/TextInput';
 import { GitHubImport, type GitHubConnection } from './GitHubImport';
 import { Webhook, CheckCircle2, AlertCircle, Plus, Send } from 'lucide-react';
 import { testIntegration, saveIntegration } from '@/features/integrations/actions';
@@ -14,6 +16,8 @@ interface Props {
 }
 
 export function IntegrationsView({ auth, integrations, githubConnection }: Props) {
+  const formId = useId();
+  const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<{ id: number; message: string; success: boolean } | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -24,29 +28,35 @@ export function IntegrationsView({ auth, integrations, githubConnection }: Props
 
   const handleTest = async (id: number) => {
     setTestingId(id);
-    const res = await testIntegration(id);
-    setTestResult({ id, message: res.message, success: res.success });
-    setTestingId(null);
-    setTimeout(() => setTestResult(null), 5000);
+    try {
+      const res = await testIntegration(id);
+      setTestResult({ id, message: res.message, success: res.success });
+    } catch {
+      setTestResult({ id, message: 'The test could not finish. Try again.', success: false });
+    } finally {
+      setTestingId(null);
+    }
   };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await saveIntegration({
-      name,
-      type,
-      webhookUrl,
-      enabled: true,
-      events: ['incident_ingested', 'critical_triage'],
-    });
-    if (!result.success) {
-      setSaveError(result.error || 'Unable to save integration.');
-      return;
-    }
+    setSaving(true);
     setSaveError('');
-    setName('');
-    setWebhookUrl('');
-    setIsAddOpen(false);
+    try {
+      const result = await saveIntegration({ name, type, webhookUrl, enabled: true, events: ['incident_ingested', 'critical_triage'] });
+      if (!result.success) {
+        setSaveError(result.error || 'Unable to save the webhook.');
+        return;
+      }
+      setName('');
+      setWebhookUrl('');
+      setType('slack');
+      setIsAddOpen(false);
+    } catch {
+      setSaveError('Unable to save the webhook. Try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -64,7 +74,7 @@ export function IntegrationsView({ auth, integrations, githubConnection }: Props
 
         {auth.isAdmin && (
           <button
-            onClick={() => setIsAddOpen(true)}
+            onClick={() => { setSaveError(''); setIsAddOpen(true); }}
             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -75,8 +85,10 @@ export function IntegrationsView({ auth, integrations, githubConnection }: Props
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <GitHubImport canManage={auth.canManageIntegrations} connection={githubConnection} />
+        <h2 className="pt-2 text-base font-semibold">Notification webhooks</h2>
+        {integrations.length === 0 && <p className="rounded-xl border border-dashed border-[var(--ui-line)] p-4 text-sm text-slate-600 dark:text-slate-300">No webhooks connected yet.</p>}
         {testResult && (
-          <div
+          <div role={testResult.success ? 'status' : 'alert'}
             className={`p-3.5 rounded-xl text-xs flex items-center gap-2 border ${
               testResult.success
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
@@ -145,69 +157,29 @@ export function IntegrationsView({ auth, integrations, githubConnection }: Props
       </div>
 
       {isAddOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-white/10 max-w-md w-full p-6 shadow-2xl relative">
-            <h3 className="font-semibold text-base text-slate-900 dark:text-white mb-4">Add integration</h3>
-            <form onSubmit={handleAdd} className="space-y-4">
-              {saveError && <p role="alert" className="text-xs text-red-600">{saveError}</p>}
+        <Modal title="Add a webhook" description="Send notifications to a tool your team uses." busy={saving}
+          onClose={() => setIsAddOpen(false)}
+          footer={<>
+            <button type="button" disabled={saving} onClick={() => setIsAddOpen(false)} className="ui-button ui-button-quiet">Cancel</button>
+            <button type="submit" form={formId} disabled={saving} className="ui-button ui-button-primary">{saving ? 'Saving…' : 'Save webhook'}</button>
+          </>}>
+          <form id={formId} onSubmit={handleAdd}>
+            <fieldset disabled={saving} className="space-y-4">
+              {saveError && <p role="alert" className="rounded-xl bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-200">{saveError}</p>}
+              <TextInput label="Webhook name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Production alerts" required />
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Name / Channel
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Slack (#prod-incidents)"
-                  className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Platform
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#171717] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="slack">Slack Incoming Webhook</option>
-                  <option value="teams">Microsoft Teams Connector</option>
-                  <option value="pagerduty">PagerDuty Event API v2</option>
+                <label htmlFor={`${formId}-platform`} className="mb-1.5 block text-sm font-semibold">Platform</label>
+                <select id={`${formId}-platform`} value={type} onChange={(event) => setType(event.target.value)} className="ui-field">
+                  <option value="slack">Slack</option>
+                  <option value="teams">Microsoft Teams</option>
+                  <option value="pagerduty">PagerDuty (simulated)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Webhook URL
-                </label>
-                <input
-                  type="url"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://hooks.slack.com/services/..."
-                  className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                  required
-                />
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs"
-                >
-                  Save Integration
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              <TextInput label="Webhook URL" type="url" value={webhookUrl} onChange={(event) => setWebhookUrl(event.target.value)}
+                placeholder="https://…" hint="Paste the HTTPS webhook URL from the selected platform." required />
+            </fieldset>
+          </form>
+        </Modal>
       )}
     </div>
   );

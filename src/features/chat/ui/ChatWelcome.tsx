@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowUpRight, AudioWaveform, BookOpen, FileText } from 'lucide-react';
-import type { IncidentSuggestionState } from '../incident-suggestions';
+import type { IncidentSuggestionState } from '../retrieval/suggestions';
 
 export function ChatWelcome({ hasIncidents, suggestions, onPrompt }: IncidentSuggestionState & { onPrompt: (query: string) => void }) {
   return (

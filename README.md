@@ -1,6 +1,6 @@
 # TriageRAG
 
-TriageRAG helps support and operations teams look up how similar incidents were resolved. PostgreSQL stores incident reports and chat history. Ollama runs the embedding and chat models locally.
+TriageRAG helps support and operations teams look up how similar incidents were resolved. PostgreSQL stores incident reports and chat history. Ollama runs embeddings and local chat models. Gemini is available as an optional cloud model.
 
 ## Where to start in the code
 
@@ -8,8 +8,9 @@ TriageRAG helps support and operations teams look up how similar incidents were 
 | --- | --- |
 | Which page or API handles a request | [src/app](src/app) |
 | How someone signs in or joins a workspace | [Accounts](src/features/accounts) |
-| How a question becomes an answer with supporting incidents | [Chat request](src/features/chat/answer-request.ts) and [incident lookup](src/features/chat/retrieve-incidents.ts) |
-| How a conversation is saved and restored | [Chat history](src/features/chat/history.ts) |
+| How a question becomes an answer with supporting incidents | [Chat request](src/features/chat/answer-request.ts) and [incident retrieval strategies](src/features/chat/retrieval) |
+| How a conversation is saved and restored | [Conversation](src/features/chat/conversation) |
+| How to add a chat model or provider | [Model catalog](src/features/chat/models/catalog.ts) and [provider registry](src/features/chat/models/registry.ts) |
 | How incident reports are added or deleted | [Incidents](src/features/incidents) |
 | How webhooks are set up and delivered | [Integrations](src/features/integrations) |
 | How sensitive text is masked | [Privacy](src/features/privacy/redact.ts) |
@@ -36,6 +37,18 @@ npm run dev
 Open [localhost:4000](http://localhost:4000) and register a workspace. In Knowledge Base, add an incident manually or choose **Import Excel** to download a template and upload up to 100 resolved incidents. Then start a new chat and ask a related question. Chats started with **New Triage Chat** save their history. Open **Account settings** from the sidebar profile card to edit your profile or change your password. Workspace administrators can also invite colleagues and manage roles under **Team**. The recipient enters the 24-hour code and chooses a password on the [invitation page](http://localhost:4000/invitation).
 
 Chat uses PostgreSQL sessions and secure production cookies. Deploy behind HTTPS and apply request rate limits at the gateway for sign-in, registration, and chat. Webhooks are optional outbound connections. The current allowlist covers Slack incoming webhooks and legacy Teams connectors. Seeded placeholder URLs and the PagerDuty connector are simulated.
+
+## Enable Gemini
+
+Add `GOOGLE_GENERATIVE_AI_API_KEY=your_key_here` to your local `.env.local` and restart the app. Select **Gemini 3.5 Flash-Lite** in the chat composer. Keep the key on the server and out of version control. The app sends the redacted question, relevant follow-up context, and matching incident excerpts to Google only when Gemini is selected. Gemini mode searches incident text directly in PostgreSQL. To opt in to Gemini semantic indexing, set `GEMINI_INDEX_INCIDENTS=true`. This sends redacted incident text to Google and builds a separate embedding index in small batches while you chat. PostgreSQL keyword search remains available if Google embeddings are unavailable or find no close match. Gemini chat works with Ollama stopped. Local models continue to use the Ollama index.
+
+For existing databases, run `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f drizzle/add-gemini-embeddings.sql` before starting the updated app. Existing incidents can be indexed without re-importing them.
+
+## Add a chat model or provider
+
+1. For another model from Ollama or Google, add its provider model ID, name, and menu description to `src/features/chat/models/catalog.ts`. The model picker, request validation, history, and observability use that catalog.
+2. For a new provider, add its SDK factory and environment configuration under `src/features/chat/models/providers/`. Add a provider entry in `src/features/chat/models/registry.ts`, then register a model in the catalog. The registry controls availability, model creation, retrieval strategy, and recovery behavior. Reuse an existing retrieval strategy when possible.
+3. For a provider that needs a separate embedding space, put the retrieval strategy under `src/features/chat/retrieval/`. Keep data sharing explicit and store incompatible vectors separately. Pass only public model metadata to the browser.
 
 ## Upgrade an existing database
 
@@ -71,4 +84,4 @@ For an existing database, apply `drizzle/add-github-incident-source.sql` with `p
 
 As a workspace admin, open **Integrations → GitHub Issues → Connect GitHub**. Enter the repository owner, repository name, and optionally one issue label. Public repositories require no credentials. For a private repository, create a GitHub fine-grained personal access token for the repository owner, choose only the target repository, and grant **Repository permissions → Issues → Read-only**. The connector uses the token in memory and does not save it. It needs no OAuth client secret or webhook secret.
 
-Choose **Save connection and preview**, then import. Each workspace can save one repository and label filter. Re-enter the token when opening setup for a private repository. The connector checks up to 30 recently updated closed issues per run and accepts issues with a **Resolution**, **Fix applied**, or **How it was fixed** section in the issue description. Repeat imports update changed records and skip unchanged ones. Imported records retain the original GitHub issue link and are visible to members of the workspace. Imports are initiated manually.
+Choose **Save connection and preview**, then import. Each workspace can save one repository and label filter. Re-enter the token when opening setup for a private repository. The connector checks up to 30 recently updated closed issues per run, or you can enter an issue number to preview one thread directly without the label filter. It accepts issues with a **Resolution**, **Fix applied**, or **How it was fixed** section in the issue description, or a documented fix in the latest page of comments from the issue author or repository team. For issues explicitly closed as Completed, a concrete fix reported by another participant can also qualify. Comment wording such as “Fixed by rolling back the deployment” also works. Repeat imports update changed records and skip unchanged ones. Imported records retain the original GitHub issue link and are visible to members of the workspace. Imports are initiated manually.

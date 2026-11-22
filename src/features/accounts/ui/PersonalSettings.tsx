@@ -12,7 +12,7 @@ import { AvatarDropzone } from './AvatarDropzone';
 
 type Feedback = { success: boolean; message: string };
 
-const submitStyle = 'min-h-10 rounded-lg bg-violet-700 px-4 text-sm font-semibold text-white hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:opacity-60';
+const submitStyle = 'ui-button ui-button-primary';
 
 function FormFeedback({ feedback }: { feedback: Feedback | null }) {
   if (!feedback) return null;

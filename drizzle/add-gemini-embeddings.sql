@@ -1,0 +1,4 @@
+BEGIN;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gemini_embedding vector(768);
+ALTER TABLE tickets ALTER COLUMN embedding DROP NOT NULL;
+COMMIT;

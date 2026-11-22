@@ -1,5 +1,5 @@
 import { embedMany } from 'ai';
-import { ollama } from 'ollama-ai-provider-v2';
+import { getLocalEmbeddingModel } from '../src/features/chat/models/providers/ollama';
 import { db } from '../src/db';
 import { tickets } from '../src/db/schema';
 import fs from 'node:fs';
@@ -32,7 +32,7 @@ async function seed() {
 
   console.log('Generating embeddings with Ollama (nomic-embed-text)...');
   const { embeddings } = await embedMany({
-    model: ollama.textEmbeddingModel('nomic-embed-text'),
+    model: getLocalEmbeddingModel(),
     values: combinedTexts,
   });
 

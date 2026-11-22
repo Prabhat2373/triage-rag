@@ -71,9 +71,9 @@ function IncidentDialog({ onClose, orgName }: Omit<Props, 'isOpen'>) {
             event.preventDefault();
             if (!isSubmitting) onClose();
           }}
-          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl backdrop:bg-slate-950/55 dark:border-white/10 dark:bg-[#201d29] dark:text-white"
+          className="ui-dialog"
         >
-          <form noValidate onSubmit={handleSubmit} className="flex max-h-[calc(100dvh-2rem-2px)] flex-col">
+          <form noValidate onSubmit={handleSubmit} className="ui-dialog-layout">
             <header className="flex shrink-0 items-start gap-3 border-b border-slate-200 px-4 py-4 sm:px-6 dark:border-white/10">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-200">
                 <FilePlus2 aria-hidden="true" className="size-5" />
@@ -87,7 +87,7 @@ function IncidentDialog({ onClose, orgName }: Omit<Props, 'isOpen'>) {
               </button>
             </header>
 
-            <div className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="ui-dialog-body">
               {savedCode ? (
                 <div role="status" className="flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-200">
                   <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />

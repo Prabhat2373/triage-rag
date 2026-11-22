@@ -32,7 +32,7 @@ export function EvidenceInspector({ isOpen, onClose, sources, onSelectTicket }: 
       </div>
 
       <div className="p-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/5">
-        Past incidents with a similarity score above 55%.
+        Open a related incident to see what happened and how it was fixed.
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -41,31 +41,31 @@ export function EvidenceInspector({ isOpen, onClose, sources, onSelectTicket }: 
             No matching incidents for this message.
           </div>
         ) : (
-          sources.map((src, i) => (
-            <div
-              key={i}
-              onClick={() => onSelectTicket(src.ticketCode)}
-              className="p-3 rounded-xl bg-white dark:bg-[#242424] border border-slate-200/80 dark:border-white/10 shadow-2xs hover:border-indigo-400 dark:hover:border-indigo-500/50 transition cursor-pointer group"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono font-bold text-[11px] text-indigo-600 dark:text-indigo-400">
-                  [{src.ticketCode}]
+          sources.map((src, index) => (
+            <section key={src.ticketCode}>
+              {index < 2 && <h4 className="mb-1.5 px-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300">{index === 0 ? 'Most relevant' : 'Other related incidents'}</h4>}
+              <button
+                type="button"
+                onClick={() => onSelectTicket(src.ticketCode)}
+                className={`group block w-full rounded-xl border p-3 text-left shadow-2xs transition hover:border-violet-400 ${index === 0 ? 'border-violet-200 bg-violet-50/70 dark:border-violet-400/30 dark:bg-violet-400/10' : 'border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#242424]'}`}
+              >
+                <span className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono font-bold text-[11px] text-indigo-600 dark:text-indigo-400">
+                    [{src.ticketCode}]
+                  </span>
                 </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                  {(src.similarity * 100).toFixed(1)}% match
+                <span className="font-semibold block text-sm text-slate-900 dark:text-white mb-1 group-hover:text-indigo-500 transition line-clamp-1">
+                  {src.title}
                 </span>
-              </div>
-              <h4 className="font-semibold text-xs text-slate-900 dark:text-white mb-1 group-hover:text-indigo-500 transition line-clamp-1">
-                {src.title}
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mb-2 font-mono">
-                {src.symptom}
-              </p>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3 w-3" />
-                <span>Verified Solution Available</span>
-              </div>
-            </div>
+                <span className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-2">
+                  {src.symptom}
+                </span>
+                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>View resolution</span>
+                </span>
+              </button>
+            </section>
           ))
         )}
       </div>

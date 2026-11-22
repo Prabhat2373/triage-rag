@@ -1,17 +1,20 @@
 'use server';
 
+import { and, eq } from 'drizzle-orm';
+
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { evaluations, chatSessions } from '@/db/schema';
 import { getAuthContext } from '@/features/accounts/session';
 import { sanitizeText } from '@/features/privacy/redact';
-import { ownedSession, readChatHistory } from './history';
-import { DEFAULT_CHAT_MODEL, isChatModel } from './types';
+import { ownedSession, readChatHistory } from './conversation/history';
+import { DEFAULT_CHAT_MODEL, isChatModel } from './models/catalog';
 
 /**
  * Record evaluation feedback (👍 / 👎)
  */
 export async function submitEvaluation(data: {
+  evaluationId?: number;
   query: string;
   modelUsed: string;
   similarityScore: string;
@@ -29,10 +32,15 @@ export async function submitEvaluation(data: {
     return { success: false, error: 'Invalid feedback.' };
   }
 
+  if (data.evaluationId !== undefined
+    && (!Number.isInteger(data.evaluationId) || data.evaluationId < 1 || data.evaluationId > 2_147_483_647)) {
+    return { success: false, error: 'Invalid feedback ID.' };
+  }
+
   const latencyMs = data.latencyMs ?? 0;
 
   try {
-    await db.insert(evaluations).values({
+    const values = {
       orgId: auth.org.id,
       userId: auth.user.id,
       query: sanitizeText(data.query).sanitized,
@@ -41,10 +49,16 @@ export async function submitEvaluation(data: {
       rating: data.rating,
       feedback: sanitizeText(data.feedback || '').sanitized,
       latencyMs: Number.isInteger(latencyMs) && latencyMs >= 0 && latencyMs <= 2_147_483_647 ? latencyMs : 0,
-    });
+    };
+    const [evaluation] = data.evaluationId === undefined
+      ? await db.insert(evaluations).values(values).returning({ id: evaluations.id })
+      : await db.update(evaluations).set({ rating: data.rating })
+          .where(and(eq(evaluations.id, data.evaluationId), eq(evaluations.orgId, auth.org.id), eq(evaluations.userId, auth.user.id)))
+          .returning({ id: evaluations.id });
+    if (!evaluation) return { success: false, error: 'Feedback not found.' };
 
-    revalidatePath('/');
-    return { success: true };
+    revalidatePath('/observability');
+    return { success: true, evaluationId: evaluation.id };
   } catch (err: unknown) {
     console.error('Unable to record feedback', err instanceof Error ? err.name : 'Unknown error');
     return { success: false, error: 'Failed to record feedback.' };

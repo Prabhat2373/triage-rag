@@ -1,5 +1,6 @@
 import { getAuthContext } from '@/features/accounts/session';
-import { getIncidentSuggestions } from '@/features/chat/incident-suggestions';
+import { getChatModelOptions } from '@/features/chat/models/registry';
+import { getIncidentSuggestions } from '@/features/chat/retrieval/suggestions';
 import { redirect } from 'next/navigation';
 import { CopilotPageClient } from '@/features/chat/ui/CopilotPageClient';
 
@@ -10,5 +11,5 @@ export default async function CopilotPage() {
   if (!auth) redirect('/login');
 
   const incidentSuggestions = await getIncidentSuggestions(auth.org.id);
-  return <CopilotPageClient incidentSuggestions={incidentSuggestions} />;
+  return <CopilotPageClient incidentSuggestions={incidentSuggestions} modelOptions={getChatModelOptions()} />;
 }
